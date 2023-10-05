@@ -34,7 +34,7 @@ def whitelist_rnn_cells(handle, verbose):
         fn_names = ['RNNReLUCell', 'RNNTanhCell', 'LSTMCell', 'GRUCell']
         mod = torch.nn.backends.thnn.backend
     else:
-        fn_names = [x + '_cell' for x in RNN_NAMES]
+        fn_names = [f'{x}_cell' for x in RNN_NAMES]
         mod = torch.nn.modules.rnn._VF
         assert isinstance(mod, VariableFunctionsShim)
 

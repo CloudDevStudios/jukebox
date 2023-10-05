@@ -86,7 +86,7 @@ def scale_loss(loss,
         yield loss
         return
 
-    if isinstance(optimizers, torch.optim.Optimizer) or isinstance(optimizers, LARC):
+    if isinstance(optimizers, (torch.optim.Optimizer, LARC)):
         optimizers = [optimizers]
 
     # this is what happens when i have to support tools from different sources under the same API...
@@ -193,34 +193,6 @@ class AmpHandle(object):
         raise RuntimeError("The old Amp API is no longer supported.  Please move to the new API, "
             "documented here:  https://nvidia.github.io/apex/amp.html.  Transition guide:  "
             "https://nvidia.github.io/apex/amp.html#transition-guide-for-old-api-users")
-
-        if not self.is_active():
-            yield loss
-            return
-
-        if self._default_scaler is None:
-            raise RuntimeError(
-                'After calling `handle.wrap_optimizer()`, you must explicitly ' +
-                'use `optimizer.scale_loss(loss)`.')
-
-        # TODO: this code block is duplicated here and `opt.py`. Unify.
-        loss_scale = self._default_scaler.loss_scale()
-        yield loss * loss_scale
-
-        self._default_scaler.clear_overflow_state()
-        self._default_scaler.unscale(
-            master_params(optimizer),
-            master_params(optimizer),
-            loss_scale)
-        should_skip = self._default_scaler.update_scale()
-        if should_skip:
-            optimizer_step = optimizer.step
-            def skip_step():
-                maybe_print('Gradient overflow, skipping update')
-                optimizer.step = optimizer_step
-            optimizer.step = skip_step
-
-        self._clear_cache()
 
     def _clear_cache(self):
         self._cache.clear()

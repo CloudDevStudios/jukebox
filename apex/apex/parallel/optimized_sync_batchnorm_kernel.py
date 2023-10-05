@@ -43,7 +43,9 @@ class SyncBatchnormFunction(Function):
                 var = var_biased * (count) / (count-1) 
 
             if count == 1 and world_size < 2:
-                raise ValueError('Expected more than 1 value per channel when training, got input size{}'.format(input.size()))
+                raise ValueError(
+                    f'Expected more than 1 value per channel when training, got input size{input.size()}'
+                )
 
             r_m_inc = mean if running_mean.dtype != torch.float16 else mean.half()
             r_v_inc = var if running_variance.dtype != torch.float16 else var.half()

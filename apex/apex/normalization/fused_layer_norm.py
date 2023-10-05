@@ -49,11 +49,14 @@ class FusedLayerNormFunction(torch.autograd.Function):
   def backward(self, grad_output):
     input_, mean, invvar = self.saved_tensors
     grad_input = None
-    grad_input = fused_layer_norm_cuda.backward(
-        grad_output.contiguous(), mean, invvar,
-        input_, self.normalized_shape,
-        self.eps)
-    return grad_input
+    return fused_layer_norm_cuda.backward(
+        grad_output.contiguous(),
+        mean,
+        invvar,
+        input_,
+        self.normalized_shape,
+        self.eps,
+    )
 
 def fused_layer_norm_affine(input, normalized_shape, weight, bias, eps=1e-6):
     return FusedLayerNormAffineFunction(normalized_shape,eps)(input, weight, bias)

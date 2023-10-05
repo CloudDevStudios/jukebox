@@ -101,12 +101,15 @@ args = parser.parse_args()
 # that verifies if the backend is what we think it is
 assert multi_tensor_applier.available == args.has_ext 
 
-print("opt_level = {}".format(args.opt_level))
-print("keep_batchnorm_fp32 = {}".format(args.keep_batchnorm_fp32), type(args.keep_batchnorm_fp32))
-print("loss_scale = {}".format(args.loss_scale), type(args.loss_scale))
+print(f"opt_level = {args.opt_level}")
+print(
+    f"keep_batchnorm_fp32 = {args.keep_batchnorm_fp32}",
+    type(args.keep_batchnorm_fp32),
+)
+print(f"loss_scale = {args.loss_scale}", type(args.loss_scale))
 
 
-print("\nCUDNN VERSION: {}\n".format(torch.backends.cudnn.version()))
+print(f"\nCUDNN VERSION: {torch.backends.cudnn.version()}\n")
 
 if args.deterministic:
     cudnn.benchmark = False
@@ -318,9 +321,6 @@ def train(train_loader, model, criterion, optimizer, epoch):
     while input is not None:
         i += 1
 
-        # No learning rate warmup for this test, to expose bitwise inaccuracies more quickly
-        # adjust_learning_rate(optimizer, epoch, i, len(train_loader))
-
         if args.prof:
             if i > 10:
                 break
@@ -388,10 +388,10 @@ def train(train_loader, model, criterion, optimizer, epoch):
             run_info_dict["Speed"].append(args.world_size * args.batch_size / batch_time.val)
             if len(run_info_dict["Loss"]) == args.prints_to_process:
                 if args.local_rank == 0:
-                    torch.save(run_info_dict,
-                               str(args.has_ext) + "_" + str(args.opt_level) + "_" +
-                               str(args.loss_scale) + "_" + str(args.keep_batchnorm_fp32) + "_" +
-                               str(args.fused_adam))
+                    torch.save(
+                        run_info_dict,
+                        f"{str(args.has_ext)}_{str(args.opt_level)}_{str(args.loss_scale)}_{str(args.keep_batchnorm_fp32)}_{str(args.fused_adam)}",
+                    )
                 quit()
 
 

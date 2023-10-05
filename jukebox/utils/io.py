@@ -5,7 +5,7 @@ import jukebox.utils.dist_adapter as dist
 
 def get_duration_sec(file, cache=False):
     try:
-        with open(file + '.dur', 'r') as f:
+        with open(f'{file}.dur', 'r') as f:
             duration = float(f.readline().strip('\n'))
         return duration
     except:
@@ -13,7 +13,7 @@ def get_duration_sec(file, cache=False):
         audio = container.streams.get(audio=0)[0]
         duration = audio.duration * float(audio.time_base)
         if cache:
-            with open(file + '.dur', 'w') as f:
+            with open(f'{file}.dur', 'w') as f:
                 f.write(str(duration) + '\n')
         return duration
 
@@ -29,9 +29,8 @@ def load_audio(file, sr, offset, duration, resample=True, approx=False, time_bas
         if offset + duration > audio_duration*sr:
             # Move back one window. Cap at audio_duration
             offset = np.min(audio_duration*sr - duration, offset - duration)
-    else:
-        if check_duration:
-            assert offset + duration <= audio_duration*sr, f'End {offset + duration} beyond duration {audio_duration*sr}'
+    elif check_duration:
+        assert offset + duration <= audio_duration*sr, f'End {offset + duration} beyond duration {audio_duration*sr}'
     if resample:
         resampler = av.AudioResampler(format='fltp',layout='stereo', rate=sr)
     else:
@@ -119,12 +118,12 @@ def test_dataset_loader():
     for i, x in enumerate(tqdm(train_loader)):
         x = x.to('cuda', non_blocking=True)
         for j, aud in enumerate(x):
-            writer.add_audio('in_' + str(i*hps.bs + j), aud, 1, hps.sr)
+            writer.add_audio(f'in_{str(i * hps.bs + j)}', aud, 1, hps.sr)
         print("Wrote in")
         x = audio_preprocess(x, hps)
         x = audio_postprocess(x, hps)
         for j, aud in enumerate(x):
-            writer.add_audio('out_' + str(i*hps.bs + j), aud, 1, hps.sr)
+            writer.add_audio(f'out_{str(i * hps.bs + j)}', aud, 1, hps.sr)
         print("Wrote out")
         dist.barrier()
         break

@@ -37,8 +37,7 @@ def _clean_tag(name):
         new_name = _INVALID_TAG_CHARACTERS.sub('_', name)
         new_name = new_name.lstrip('/')  # Remove leading slashes
         if new_name != name:
-            logging.info(
-                'Summary name %s is illegal; using %s instead.' % (name, new_name))
+            logging.info(f'Summary name {name} is illegal; using {new_name} instead.')
             name = new_name
     return name
 
@@ -378,7 +377,7 @@ def audio(tag, tensor, sample_rate=44100):
         tensor = tensor.clip(-1, 1)
     assert(tensor.ndim == 2), 'input tensor should be 2 dimensional.'
     length_frames, num_channels = tensor.shape
-    assert num_channels == 1 or num_channels == 2, f'Expected 1/2 channels, got {num_channels}'
+    assert num_channels in [1, 2], f'Expected 1/2 channels, got {num_channels}'
     import soundfile
     import io
     with io.BytesIO() as fio:
@@ -428,12 +427,17 @@ def text(tag, text):
     tensor = TensorProto(dtype='DT_STRING',
                          string_val=[text.encode(encoding='utf_8')],
                          tensor_shape=TensorShapeProto(dim=[TensorShapeProto.Dim(size=1)]))
-    return Summary(value=[Summary.Value(tag=tag + '/text_summary', metadata=smd, tensor=tensor)])
+    return Summary(
+        value=[
+            Summary.Value(
+                tag=f'{tag}/text_summary', metadata=smd, tensor=tensor
+            )
+        ]
+    )
 
 
 def pr_curve_raw(tag, tp, fp, tn, fn, precision, recall, num_thresholds=127, weights=None):
-    if num_thresholds > 127:  # weird, value > 127 breaks protobuf
-        num_thresholds = 127
+    num_thresholds = min(num_thresholds, 127)
     data = np.stack((tp, fp, tn, fn, precision, recall))
     pr_curve_plugin_data = PrCurvePluginData(
         version=0, num_thresholds=num_thresholds).SerializeToString()
@@ -517,12 +521,7 @@ def _get_tensor_summary(tag, tensor, content_type, json_config):
                              TensorShapeProto.Dim(size=tensor.shape[1]),
                              TensorShapeProto.Dim(size=tensor.shape[2]),
                          ]))
-    tensor_summary = Summary.Value(
-        tag='{}_{}'.format(tag, content_type),
-        tensor=tensor,
-        metadata=smd,
-    )
-    return tensor_summary
+    return Summary.Value(tag=f'{tag}_{content_type}', tensor=tensor, metadata=smd)
 
 
 def mesh(tag, vertices, colors, faces, config_dict=None):
@@ -535,10 +534,14 @@ def mesh(tag, vertices, colors, faces, config_dict=None):
         (colors, 3)
     ]
 
-    for tensor, content_type in tensors:
-        if tensor is None:
-            continue
-        summaries.append(
-            _get_tensor_summary(tag, make_np(tensor), content_type, json.dumps(config_dict, sort_keys=True)))
-
+    summaries.extend(
+        _get_tensor_summary(
+            tag,
+            make_np(tensor),
+            content_type,
+            json.dumps(config_dict, sort_keys=True),
+        )
+        for tensor, content_type in tensors
+        if tensor is not None
+    )
     return Summary(value=summaries)

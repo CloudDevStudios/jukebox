@@ -42,8 +42,13 @@ def log_labels(logger, labeller, tag, y, hps):
 def get_ddp(model, hps):
     rank = dist.get_rank()
     local_rank = rank % 8
-    ddp = DistributedDataParallel(model, device_ids=[local_rank], output_device=local_rank, broadcast_buffers=False, bucket_cap_mb=hps.bucket)
-    return ddp
+    return DistributedDataParallel(
+        model,
+        device_ids=[local_rank],
+        output_device=local_rank,
+        broadcast_buffers=False,
+        bucket_cap_mb=hps.bucket,
+    )
 
 def get_ema(model, hps):
     mu = hps.mu or (1. - (hps.bs * hps.ngpus/8.)/1000)
@@ -141,7 +146,13 @@ def sample_prior(orig_model, ema, logger, x_in, y, hps):
 
     log_aud(logger, 'sample_x_T1', x_sample, hps)
     if hps.prior and hps.labels:
-        log_labels(logger, orig_model.labeller, f'sample_x_T1', allgather(y.cuda()), hps)
+        log_labels(
+            logger,
+            orig_model.labeller,
+            'sample_x_T1',
+            allgather(y.cuda()),
+            hps,
+        )
 
     # Recons
     for i in range(len(x_ds)):

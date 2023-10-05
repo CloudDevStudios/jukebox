@@ -35,10 +35,9 @@ class DummyPrior:
             assert start % self.cond_downsample == end % self.cond_downsample == 0
             z_cond = zs[self.level + 1][:,start//self.cond_downsample:end//self.cond_downsample]
             assert z_cond.shape[1] == self.n_ctx//self.cond_downsample
-            z_conds = [z_cond]
+            return [z_cond]
         else:
-            z_conds = None
-        return z_conds
+            return None
 
     def ancestral_sample(self, n_samples, z_conds=None, y=None):
         z = t.zeros((n_samples, self.n_ctx), dtype=t.long, device='cuda') + \
@@ -124,7 +123,7 @@ def check_sample():
     priors = [DummyPrior(n_ctx, level, levels) for level in range(levels)]
     max_total_length, offset, sample_length = 4134368, 0, n_ctx*8*4*4
     y = t.tensor([max_total_length, offset, sample_length, 10, 1, -1, -1, -1, -1], dtype=t.long, device='cuda').view(1, 9).repeat(n_samples, 1)
-    labels = [dict(y=y, info=[[]*n_samples]) for level in range(levels)]
+    labels = [dict(y=y, info=[[]*n_samples]) for _ in range(levels)]
     hps = Hyperparams({
         'levels': 3,
         'sample_length': sample_length,

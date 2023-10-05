@@ -50,14 +50,12 @@ class WeightNorm(Reparameterization):
         if name is None:
             name = self.name
         module, name = Reparameterization.get_module_and_name(module, name)
-        g = getattr(module, name + '_g')
-        v = getattr(module, name + '_v')
+        g = getattr(module, f'{name}_g')
+        v = getattr(module, f'{name}_v')
 
         fused_weight_norm = Fused_Weight_Norm.apply
         v = v.contiguous()
-        w = fused_weight_norm(v, g, self.dim)
-
-        return w
+        return fused_weight_norm(v, g, self.dim)
 
     def reparameterize(self, name, weight, dim):
         """
@@ -73,6 +71,6 @@ class WeightNorm(Reparameterization):
             names (list, str): names of Parameters to be used for reparameterization
             params (list, Parameter): Parameters to be used for reparameterization
         """
-        names = [name + '_g', name + '_v']
+        names = [f'{name}_g', f'{name}_v']
         params = [Parameter(_norm(weight, dim).data), Parameter(weight.data)]
         return names, params

@@ -30,12 +30,10 @@ class TestPromotion(unittest.TestCase):
             if x_inplace:
                 # In place: always match xtype
                 self.assertEqual(out.type(), x.type())
+            elif xtype == torch.float or ytype == torch.float:
+                self.assertEqual(out.type(), FLOAT)
             else:
-                # Out of place: match widest type
-                if xtype == torch.float or ytype == torch.float:
-                    self.assertEqual(out.type(), FLOAT)
-                else:
-                    self.assertEqual(out.type(), HALF)
+                self.assertEqual(out.type(), HALF)
             out.float().sum().backward()
             self.assertEqual(x_leaf.grad.dtype, xtype)
 

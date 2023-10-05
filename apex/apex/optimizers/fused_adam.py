@@ -62,26 +62,20 @@ class FusedAdam(torch.optim.Optimizer):
             scale (float, optional): factor to divide gradient tensor values
                 by before applying to weights. (default: 1)
         """
-        loss = None
-        if closure is not None:
-            loss = closure()
-
+        loss = closure() if closure is not None else None
         if grads is None:
             grads_group = [None]*len(self.param_groups)
-        # backward compatibility
-        # assuming a list/generator of parameter means single group
-        elif isinstance(grads, types.GeneratorType):
-            grads_group = [grads]
-        elif type(grads[0])!=list:
+        elif isinstance(grads, types.GeneratorType) or type(grads[0]) != list:
             grads_group = [grads]
         else:
             grads_group = grads
 
         if output_params is None:
             output_params_group = [None]*len(self.param_groups)
-        elif isinstance(output_params, types.GeneratorType):
-            output_params_group = [output_params]
-        elif type(output_params[0])!=list:
+        elif (
+            isinstance(output_params, types.GeneratorType)
+            or type(output_params[0]) != list
+        ):
             output_params_group = [output_params]
         else:
             output_params_group = output_params

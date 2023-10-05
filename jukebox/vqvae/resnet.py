@@ -47,10 +47,8 @@ class Resnet1D(nn.Module):
     def __init__(self, n_in, n_depth, m_conv=1.0, dilation_growth_rate=1, dilation_cycle=None, zero_out=False, res_scale=False, reverse_dilation=False, checkpoint_res=False):
         super().__init__()
         def _get_depth(depth):
-            if dilation_cycle is None:
-                return depth
-            else:
-                return depth % dilation_cycle
+            return depth if dilation_cycle is None else depth % dilation_cycle
+
         blocks = [ResConv1DBlock(n_in, int(m_conv * n_in),
                                  dilation=dilation_growth_rate ** _get_depth(depth),
                                  zero_out=zero_out,
@@ -67,9 +65,8 @@ class Resnet1D(nn.Module):
             self.model = nn.Sequential(*blocks)
 
     def forward(self, x):
-        if self.checkpoint_res == 1:
-            for block in self.blocks:
-                x = checkpoint(block, (x, ), block.parameters(), True)
-            return x
-        else:
+        if self.checkpoint_res != 1:
             return self.model(x)
+        for block in self.blocks:
+            x = checkpoint(block, (x, ), block.parameters(), True)
+        return x

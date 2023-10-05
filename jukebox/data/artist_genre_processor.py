@@ -9,8 +9,7 @@ rex = re.compile(r'_+')
 
 def norm(s):
     s = ''.join([c if c in accepted else '_' for c in s.lower()])
-    s = rex.sub('_', s).strip('_')
-    return s
+    return rex.sub('_', s).strip('_')
 
 def create_reverse_lookup(atoi):
     # Multiple entries could go to the same artist_id/genre_id
@@ -39,21 +38,14 @@ class ArtistGenreProcessor():
 
     def get_artist_id(self, artist):
         input_artist = artist
-        if self.v3:
-            artist = artist.lower()
-        else:
-            artist = norm(artist)
+        artist = artist.lower() if self.v3 else norm(artist)
         if artist not in self.artist_ids:
             print(f"Input artist {input_artist} maps to {artist}, which is not present in {self.artist_id_file}. "
                   f"Defaulting to (artist_id, artist) = (0, unknown), if that seems wrong please format artist correctly")
         return self.artist_ids.get(artist, 0)
 
     def get_genre_ids(self, genre):
-        if self.v3:
-            genres = [genre.lower()]
-        else:
-            # In v2, we convert genre into a bag of words
-            genres = norm(genre).split("_")
+        genres = [genre.lower()] if self.v3 else norm(genre).split("_")
         for word in genres:
             if word not in self.genre_ids:
                 print(f"Input genre {genre} maps to the list {genres}. {word} is not present in {self.genre_id_file}. "
@@ -65,12 +57,12 @@ class ArtistGenreProcessor():
         return self.artists[artist_id]
 
     def get_genre(self, genre_ids):
-        if self.v3:
-            assert len(genre_ids) == 1
-            genre = self.genres[genre_ids[0]]
-        else:
-            genre = '_'.join([self.genres[genre_id] for genre_id in genre_ids if genre_id >= 0])
-        return genre
+        if not self.v3:
+            return '_'.join(
+                [self.genres[genre_id] for genre_id in genre_ids if genre_id >= 0]
+            )
+        assert len(genre_ids) == 1
+        return self.genres[genre_ids[0]]
 
     def load_artists(self):
         print(f'Loading artist IDs from {self.artist_id_file}')

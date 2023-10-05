@@ -16,20 +16,17 @@ from ..parallel.LARC import LARC
 
 
 def to_type(dtype, t):
-    if isinstance(t, torch.Tensor):
-        if not t.is_cuda:
-            # This should not be a hard error, since it may be legitimate.
-            warnings.warn("An input tensor was not cuda.")
+    if not isinstance(t, torch.Tensor):
+        # Trust the user's custom batch type, that's all I can do here.
+        return t.to(dtype)
+    if not t.is_cuda:
+        # This should not be a hard error, since it may be legitimate.
+        warnings.warn("An input tensor was not cuda.")
         # GANs require this.
         # if t.requires_grad:
         #     warn_or_err("input data requires grad.  Since input data is not a model parameter,\n"
         #         "its gradients will not be properly allreduced by DDP.")
-        if t.is_floating_point():
-            return t.to(dtype)
-        return t
-    else:
-        # Trust the user's custom batch type, that's all I can do here.
-        return t.to(dtype)
+    return t.to(dtype) if t.is_floating_point() else t
 
 
 # Modified from torch.optim.optimizer.py.  This is a bit more general than casted_args in utils.py.
@@ -68,9 +65,13 @@ def check_models(models):
         if isinstance(model, torch.nn.parallel.DataParallel):
             parallel_type = "torch.nn.parallel.DataParallel"
         if parallel_type is not None:
-            raise RuntimeError("Incoming model is an instance of {}. ".format(parallel_type) +
-                "Parallel wrappers should only be applied to the model(s) AFTER \n"
-                "the model(s) have been returned from amp.initialize.")
+            raise RuntimeError(
+                (
+                    f"Incoming model is an instance of {parallel_type}. "
+                    + "Parallel wrappers should only be applied to the model(s) AFTER \n"
+                    "the model(s) have been returned from amp.initialize."
+                )
+            )
 
 
 def check_params_fp32(models):
@@ -78,16 +79,13 @@ def check_params_fp32(models):
         for name, param in model.named_parameters():
             if param.is_floating_point():
                 if 'Half' in param.type():
-                    warn_or_err("Found param {} with type {}, expected torch.cuda.FloatTensor.\n"
-                        "When using amp.initialize, you do not need to call .half() on your model\n"
-                        "before passing it, no matter what optimization level you choose.".format(
-                        name, param.type()))
+                    warn_or_err(
+                        f"Found param {name} with type {param.type()}, expected torch.cuda.FloatTensor.\nWhen using amp.initialize, you do not need to call .half() on your model\nbefore passing it, no matter what optimization level you choose."
+                    )
                 elif not param.is_cuda:
-                    warn_or_err("Found param {} with type {}, expected torch.cuda.FloatTensor.\n"
-                        "When using amp.initialize, you need to provide a model with parameters\n"
-                        "located on a CUDA device before passing it no matter what optimization level\n"
-                        "you chose. Use model.to('cuda') to use the default device.".format(
-                        name, param.type()))
+                    warn_or_err(
+                        f"Found param {name} with type {param.type()}, expected torch.cuda.FloatTensor.\nWhen using amp.initialize, you need to provide a model with parameters\nlocated on a CUDA device before passing it no matter what optimization level\nyou chose. Use model.to('cuda') to use the default device."
+                    )
 
         # Backward compatibility for PyTorch 0.4
         if hasattr(model, 'named_buffers'):
@@ -95,22 +93,16 @@ def check_params_fp32(models):
         else:
             buf_iter = model._buffers
         for obj in buf_iter:
-            if type(obj)==tuple:
-                name, buf = obj
-            else:
-                name, buf = obj, buf_iter[obj]
+            name, buf = obj if type(obj)==tuple else (obj, buf_iter[obj])
             if buf.is_floating_point():
                 if 'Half' in buf.type():
-                    warn_or_err("Found buffer {} with type {}, expected torch.cuda.FloatTensor.\n"
-                        "When using amp.initialize, you do not need to call .half() on your model\n"
-                        "before passing it, no matter what optimization level you choose.".format(
-                        name, buf.type()))
+                    warn_or_err(
+                        f"Found buffer {name} with type {buf.type()}, expected torch.cuda.FloatTensor.\nWhen using amp.initialize, you do not need to call .half() on your model\nbefore passing it, no matter what optimization level you choose."
+                    )
                 elif not buf.is_cuda:
-                    warn_or_err("Found buffer {} with type {}, expected torch.cuda.FloatTensor.\n"
-                        "When using amp.initialize, you need to provide a model with buffers\n"
-                        "located on a CUDA device before passing it no matter what optimization level\n"
-                        "you chose. Use model.to('cuda') to use the default device.".format(
-                        name, buf.type()))
+                    warn_or_err(
+                        f"Found buffer {name} with type {buf.type()}, expected torch.cuda.FloatTensor.\nWhen using amp.initialize, you need to provide a model with buffers\nlocated on a CUDA device before passing it no matter what optimization level\nyou chose. Use model.to('cuda') to use the default device."
+                    )
 
 
 def check_optimizers(optimizers):
@@ -121,14 +113,18 @@ def check_optimizers(optimizers):
         if isinstance(optim, FP16_Optimizer_for_fused):
             bad_optim_type = "apex.optimizers.FP16_Optimizer"
         if bad_optim_type is not None:
-            raise RuntimeError("An incoming optimizer is an instance of {}. ".format(bad_optim_type) +
-                               "The optimizer(s) passed to amp.initialize() must be bare \n"
-                               "instances of either ordinary Pytorch optimizers, or Apex fused \n"
-                               "optimizers (currently just FusedAdam, but FusedSGD will be added \n"
-                               "soon).  You should not manually wrap your optimizer in either \n"
-                               "apex.fp16_utils.FP16_Optimizer or apex.optimizers.FP16_Optimizer. \n"
-                               "amp.initialize will take care of that for you (if necessary) based \n"
-                               "on the specified opt_level (and optional overridden properties).")
+            raise RuntimeError(
+                (
+                    f"An incoming optimizer is an instance of {bad_optim_type}. "
+                    + "The optimizer(s) passed to amp.initialize() must be bare \n"
+                    "instances of either ordinary Pytorch optimizers, or Apex fused \n"
+                    "optimizers (currently just FusedAdam, but FusedSGD will be added \n"
+                    "soon).  You should not manually wrap your optimizer in either \n"
+                    "apex.fp16_utils.FP16_Optimizer or apex.optimizers.FP16_Optimizer. \n"
+                    "amp.initialize will take care of that for you (if necessary) based \n"
+                    "on the specified opt_level (and optional overridden properties)."
+                )
+            )
 
 
 def wrap_fused_adam(optimizer, properties):
@@ -152,7 +148,7 @@ def _initialize(models, optimizers, properties, num_losses=1, cast_model_outputs
     from .amp import init as amp_init
 
     optimizers_was_list = False
-    if isinstance(optimizers, torch.optim.Optimizer) or isinstance(optimizers, LARC):
+    if isinstance(optimizers, (torch.optim.Optimizer, LARC)):
         optimizers = [optimizers]
     elif optimizers is None:
         optimizers = []
@@ -251,18 +247,8 @@ def _initialize(models, optimizers, properties, num_losses=1, cast_model_outputs
             optimizer.step = patch_step(optimizer.step)
 
     if optimizers_was_list:
-        if models_was_list:
-            return models, optimizers
-        else:
-            return models[0], optimizers
+        return (models, optimizers) if models_was_list else (models[0], optimizers)
+    if models_was_list:
+        return models if len(optimizers) == 0 else (models, optimizers[0])
     else:
-        if models_was_list:
-            if len(optimizers) == 0:
-                return models
-            else:
-                return models, optimizers[0]
-        else:
-            if len(optimizers) == 0:
-                return models[0]
-            else:
-                return models[0], optimizers[0]
+        return models[0] if len(optimizers) == 0 else (models[0], optimizers[0])

@@ -40,7 +40,10 @@ class PositionEmbedding(nn.Module):
 
     def forward(self):
         if self.pos_init:
-            pos_emb = sum([self._pos_embs[i](self.pos[:,i]) for i in range(len(self.input_shape))])
+            pos_emb = sum(
+                self._pos_embs[i](self.pos[:, i])
+                for i in range(len(self.input_shape))
+            )
         else:
             pos_emb = self.pos_emb
         return pos_emb
@@ -107,7 +110,7 @@ class ConditionalAutoregressive2D(nn.Module):
     def postprocess(self, x, sample_tokens=None):
         # Convert back from NL and long to NHWC
         N = x.shape[0]
-        assert (0 <= x).all() and (x < self.bins).all()
+        assert (x >= 0).all() and (x < self.bins).all()
         if sample_tokens is None or sample_tokens==self.input_dims:
             return x.view(N, *self.input_shape)
         else:
@@ -121,7 +124,7 @@ class ConditionalAutoregressive2D(nn.Module):
 
         N, D = x.shape
         assert isinstance(x, t.cuda.LongTensor)
-        assert (0 <= x).all() and (x < self.bins).all()
+        assert (x >= 0).all() and (x < self.bins).all()
 
         if self.y_cond:
             assert y_cond is not None
@@ -131,7 +134,10 @@ class ConditionalAutoregressive2D(nn.Module):
 
         if self.x_cond:
             assert x_cond is not None
-            assert x_cond.shape == (N, D, self.width) or x_cond.shape == (N, 1, self.width), f"{x_cond.shape} != {(N, D, self.width)} nor {(N, 1, self.width)}. Did you pass the correct --sample_length?"
+            assert x_cond.shape in [
+                (N, D, self.width),
+                (N, 1, self.width),
+            ], f"{x_cond.shape} != {(N, D, self.width)} nor {(N, 1, self.width)}. Did you pass the correct --sample_length?"
         else:
             assert x_cond is None
             x_cond = t.zeros((N, 1, self.width), device=x.device, dtype=t.float)
@@ -139,11 +145,7 @@ class ConditionalAutoregressive2D(nn.Module):
         x_t = x # Target
         x = self.x_emb(x) # X emb
         x = roll(x, 1) # Shift by 1, and fill in start token
-        if self.y_cond:
-            x[:,0] = y_cond.view(N, self.width)
-        else:
-            x[:,0] = self.start_token
-
+        x[:,0] = y_cond.view(N, self.width) if self.y_cond else self.start_token
         x = self.x_emb_dropout(x) + self.pos_emb_dropout(self.pos_emb()) + x_cond # Pos emb and dropout
 
         x = self.transformer(x, encoder_kv=encoder_kv, fp16=fp16) # Transformer
@@ -179,13 +181,10 @@ class ConditionalAutoregressive2D(nn.Module):
         if sample_t == 0:
             # Fill in start token
             x = t.empty(n_samples, 1, self.width).cuda()
-            if self.y_cond:
-                x[:, 0] = y_cond.view(N, self.width)
-            else:
-                x[:, 0] = self.start_token
+            x[:, 0] = y_cond.view(N, self.width) if self.y_cond else self.start_token
         else:
             assert isinstance(x, t.cuda.LongTensor)
-            assert (0 <= x).all() and (x < self.bins).all()
+            assert (x >= 0).all() and (x < self.bins).all()
             x = self.x_emb(x)
         assert x.shape == (n_samples, 1, self.width)
         if x_cond.shape == (N, D, self.width):
@@ -210,7 +209,10 @@ class ConditionalAutoregressive2D(nn.Module):
 
         if self.x_cond:
             assert x_cond is not None
-            assert x_cond.shape == (N, D, self.width) or x_cond.shape == (N, 1, self.width), f"Got {x_cond.shape}, expected ({N}, {D}/{1}, {self.width})"
+            assert x_cond.shape in [
+                (N, D, self.width),
+                (N, 1, self.width),
+            ], f"Got {x_cond.shape}, expected ({N}, {D}/1, {self.width})"
         else:
             assert x_cond is None
             x_cond = t.zeros((N, 1, self.width), dtype=t.float).cuda()
@@ -243,10 +245,7 @@ class ConditionalAutoregressive2D(nn.Module):
             if get_preds:
                 preds = t.cat(preds, dim=1)
             x = self.postprocess(x, sample_tokens)
-        if get_preds:
-            return x, preds
-        else:
-            return x
+        return (x, preds) if get_preds else x
 
     def primed_sample(self, n_samples, x, x_cond=None, y_cond=None, encoder_kv=None, fp16=False, temp=1.0, top_k=0,
                       top_p=0.0, get_preds=False, chunk_size=None, sample_tokens=None):
@@ -257,7 +256,7 @@ class ConditionalAutoregressive2D(nn.Module):
         with t.no_grad():
             x = self.preprocess(x)
         assert isinstance(x, t.cuda.LongTensor)
-        assert (0 <= x).all() and (x < self.bins).all()
+        assert (x >= 0).all() and (x < self.bins).all()
         assert x.shape[0] == n_samples
         xs = t.split(x, 1, dim=1)
         xs = list(xs)
@@ -272,7 +271,10 @@ class ConditionalAutoregressive2D(nn.Module):
 
         if self.x_cond:
             assert x_cond is not None
-            assert x_cond.shape == (N, D, self.width) or x_cond.shape == (N, 1, self.width), f"Got {x_cond.shape}, expected ({N}, {D}/{1}, {self.width})"
+            assert x_cond.shape in [
+                (N, D, self.width),
+                (N, 1, self.width),
+            ], f"Got {x_cond.shape}, expected ({N}, {D}/1, {self.width})"
         else:
             assert x_cond is None
             x_cond = t.zeros((N, 1, self.width), dtype=t.float).cuda()
@@ -353,10 +355,7 @@ class ConditionalAutoregressive2D(nn.Module):
             if get_preds:
                 preds = t.cat(preds, dim=1)
             x = self.postprocess(x, sample_tokens)
-        if get_preds:
-            return x, preds
-        else:
-            return x
+        return (x, preds) if get_preds else x
 
     def check_sample(self, chunk_size):
         bs, l, d = (4, self.input_dims, self.width)

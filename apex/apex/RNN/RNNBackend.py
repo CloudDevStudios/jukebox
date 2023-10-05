@@ -8,7 +8,7 @@ import math
 
 
 def is_iterable(maybe_iterable):
-    return isinstance(maybe_iterable, list) or isinstance(maybe_iterable, tuple)
+    return isinstance(maybe_iterable, (list, tuple))
 
 
 def flatten_list(tens_list):
@@ -93,21 +93,23 @@ class stackedRNN(nn.Module):
     """
     def __init__(self, inputRNN, num_layers=1, dropout=0):
         super(stackedRNN, self).__init__()
-        
+
         self.dropout = dropout
-        
+
         if isinstance(inputRNN, RNNCell):
             self.rnns = [inputRNN]
-            for i in range(num_layers-1):
-                self.rnns.append(inputRNN.new_like(inputRNN.output_size))
+            self.rnns.extend(
+                inputRNN.new_like(inputRNN.output_size)
+                for _ in range(num_layers - 1)
+            )
         elif isinstance(inputRNN, list):
             assert len(inputRNN) == num_layers, "RNN list length must be equal to num_layers"
             self.rnns=inputRNN
         else:
             raise RuntimeError()
-        
+
         self.nLayers = len(self.rnns)
-        
+
         self.rnns = nn.ModuleList(self.rnns)
 
 
@@ -127,7 +129,7 @@ class stackedRNN(nn.Module):
         bsz = input.size(1)
         inp_iter = reversed(range(seq_len)) if reverse else range(seq_len)
 
-        hidden_states = [[] for i in range(self.nLayers)]
+        hidden_states = [[] for _ in range(self.nLayers)]
         outputs = []
 
         for seq in inp_iter:
@@ -135,14 +137,11 @@ class stackedRNN(nn.Module):
 
                 if layer == 0:
                     prev_out = input[seq]
-                    
+
                 outs = self.rnns[layer](prev_out)
 
-                if collect_hidden:
+                if collect_hidden or seq == seq_len - 1:
                     hidden_states[layer].append(outs)
-                elif seq == seq_len-1:
-                    hidden_states[layer].append(outs)
-                    
                 prev_out = outs[0]
 
             outputs.append(prev_out)
@@ -169,7 +168,10 @@ class stackedRNN(nn.Module):
         if not collect_hidden:
             seq_len = 1
         n_hid = self.rnns[0].n_hidden_states
-        new_hidden = [ [ [ None for k in range(self.nLayers)] for j in range(seq_len) ] for i in range(n_hid) ]
+        new_hidden = [
+            [[None for _ in range(self.nLayers)] for _ in range(seq_len)]
+            for _ in range(n_hid)
+        ]
 
 
         for i in range(n_hid):
@@ -181,17 +183,15 @@ class stackedRNN(nn.Module):
         #Now in format list( [hidden_states][seq_length][layer] x Tensor([bsz][features]) )
         #Reverse seq_length if reverse
         if reverse:
-            hidden_states = list( list(reversed(list(entry))) for entry in hidden_states)
+            hidden_states = [list(reversed(list(entry))) for entry in hidden_states]
 
         #flatten layer dimension into tensor
-        hiddens = list( list(
-            flatten_list(seq) for seq in hidden )
-                        for hidden in hidden_states )
-        
+        hiddens = [[flatten_list(seq) for seq in hidden] for hidden in hidden_states]
+
         #Now in format list( [hidden_states][seq_length] x Tensor([layer][bsz][features]) )
         #Remove seq_length dimension if not collect_hidden
         if not collect_hidden:
-            hidden_states = list( entry[0] for entry in hidden_states)
+            hidden_states = [entry[0] for entry in hidden_states]
         return output, hidden_states
     
     def reset_parameters(self):
@@ -265,9 +265,9 @@ class RNNCell(nn.Module):
         if self.bias:
             self.b_ih = nn.Parameter(torch.Tensor(self.gate_size))
             self.b_hh = nn.Parameter(torch.Tensor(self.gate_size))
-            
+
         #hidden states for forward
-        self.hidden = [ None for states in range(self.n_hidden_states)]
+        self.hidden = [None for _ in range(self.n_hidden_states)]
 
         self.reset_parameters()
 
@@ -316,13 +316,9 @@ class RNNCell(nn.Module):
                 break
 
         for i, _ in enumerate(self.hidden):
-            if(self.hidden[i] is None or self.hidden[i].data.size()[0] != bsz):
+            if (self.hidden[i] is None or self.hidden[i].data.size()[0] != bsz):
 
-                if i==0:
-                    hidden_size = self.output_size
-                else:
-                    hidden_size = self.hidden_size
-
+                hidden_size = self.output_size if i==0 else self.hidden_size
                 tens = a_param.data.new(bsz, hidden_size).zero_()
                 self.hidden[i] = Variable(tens, requires_grad=False)
             
@@ -354,11 +350,9 @@ class RNNCell(nn.Module):
 
         hidden_state = self.hidden[0] if self.n_hidden_states == 1 else self.hidden
         self.hidden = self.cell(input, hidden_state, self.w_ih, self.w_hh, b_ih=self.b_ih, b_hh=self.b_hh)
-        if(self.n_hidden_states > 1):
-            self.hidden = list(self.hidden)
-        else:
-            self.hidden=[self.hidden]
-
+        self.hidden = (
+            list(self.hidden) if (self.n_hidden_states > 1) else [self.hidden]
+        )
         if self.output_size != self.hidden_size:
             self.hidden[0] = F.linear(self.hidden[0], self.w_ho)
 

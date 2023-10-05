@@ -14,7 +14,7 @@ def compare_proto(str_to_compare, function_ptr):
     expected_file = os.path.join(os.path.dirname(test_file),
                         "expect",
                         module_id.split('.')[-1] + '.' + functionName + ".expect")
-    print("expected_file: %s" % expected_file)
+    print(f"expected_file: {expected_file}")
     assert os.path.exists(expected_file)
     with open(expected_file) as f:
         expected = f.read()

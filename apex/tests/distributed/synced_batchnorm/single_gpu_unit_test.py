@@ -1,13 +1,8 @@
 import torch
 import numpy as np
 import apex
-if True:
-    print("using setup tools")
-    import syncbn
-else:
-    print("using jit")
-    from torch.utils.cpp_extension import load
-    syncbn = load(name='syncbn', sources=['../../csrc/syncbn.cpp', '../../csrc/welford.cu'])
+print("using setup tools")
+import syncbn
 
 def compare(desc, inp1, inp2, error):
     a = inp1.clone().detach().cpu().numpy()

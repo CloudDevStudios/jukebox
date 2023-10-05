@@ -12,10 +12,7 @@ import chainer.links as L
 
 def add_noise(h, sigma=0.2):
     xp = cuda.get_array_module(h.data)
-    if chainer.config.train:
-        return h + sigma * xp.random.randn(*h.shape)
-    else:
-        return h
+    return h + sigma * xp.random.randn(*h.shape) if chainer.config.train else h
 
 
 class Generator(chainer.Chain):
@@ -49,8 +46,7 @@ class Generator(chainer.Chain):
         h = F.relu(self.bn1(self.dc1(h)))
         h = F.relu(self.bn2(self.dc2(h)))
         h = F.relu(self.bn3(self.dc3(h)))
-        x = F.sigmoid(self.dc4(h))
-        return x
+        return F.sigmoid(self.dc4(h))
 
 
 class Discriminator(chainer.Chain):

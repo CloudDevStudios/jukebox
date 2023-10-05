@@ -38,7 +38,7 @@ class TestFP16Optimizer(unittest.TestCase):
         tst_optim = apex.optimizers.FusedAdam(self.tst_model.parameters())
         tst_optim = apex.optimizers.FP16_Optimizer(tst_optim)
 
-        for i in range(self.iters):
+        for _ in range(self.iters):
             ref_loss = self.ref_model(self.x).sum()
             ref_optim.backward(ref_loss)
             ref_optim.step()
@@ -60,7 +60,7 @@ class TestFP16Optimizer(unittest.TestCase):
         tst_optim = apex.optimizers.FusedAdam(self.tst_model.parameters())
         tst_optim = apex.optimizers.FP16_Optimizer(tst_optim, static_loss_scale=128.0)
 
-        for i in range(self.iters):
+        for _ in range(self.iters):
             ref_loss = self.ref_model(self.x).sum()
             ref_optim.backward(ref_loss)
             ref_optim.step()
@@ -83,7 +83,7 @@ class TestFP16Optimizer(unittest.TestCase):
         tst_optim = apex.optimizers.FusedAdam(tst_groups)
         tst_optim = apex.optimizers.FP16_Optimizer(tst_optim)
 
-        for i in range(self.iters):
+        for _ in range(self.iters):
             ref_loss = self.ref_model(self.x).sum()
             ref_optim.backward(ref_loss)
             ref_optim.step()
@@ -103,7 +103,7 @@ class TestFP16Optimizer(unittest.TestCase):
         tst_optim = apex.optimizers.FusedAdam(self.tst_model.parameters(), max_grad_norm=0.01)
         tst_optim = apex.optimizers.FP16_Optimizer(tst_optim)
 
-        for i in range(self.iters):
+        for _ in range(self.iters):
             ref_loss = self.ref_model(self.x).sum()
             ref_optim.backward(ref_loss)
             ref_optim.clip_master_grads(0.01)

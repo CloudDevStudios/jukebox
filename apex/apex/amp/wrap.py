@@ -51,7 +51,7 @@ def make_promote_wrapper(orig_fn, cast_fn, handle=None):
 
         if len(types) <= 1:
             return orig_fn(*args, **kwargs)
-        elif len(types) == 2 and types == set(['HalfTensor', 'FloatTensor']):
+        elif len(types) == 2 and types == {'HalfTensor', 'FloatTensor'}:
             new_args = utils.casted_args(cast_fn,
                                          args,
                                          kwargs)
@@ -60,6 +60,7 @@ def make_promote_wrapper(orig_fn, cast_fn, handle=None):
             raise NotImplementedError('Do not know how to handle ' +
                                       'these types to promote: {}'
                                       .format(types))
+
     return wrapper
 
 def promote(mod, fn, handle, verbose=False):
@@ -76,10 +77,10 @@ def sequence_promote(mod, fn, handle, verbose=False):
         if not _amp_state.handle.is_active():
             return orig_fn(seq, *args, **kwargs)
 
-        types = set([utils.type_string(x) for x in seq])
+        types = {utils.type_string(x) for x in seq}
         if len(types) <= 1:
             return orig_fn(seq, *args, **kwargs)
-        elif types == set(['HalfTensor', 'FloatTensor']):
+        elif types == {'HalfTensor', 'FloatTensor'}:
             cast_seq = utils.casted_args(maybe_float,
                                          seq, {})
             return orig_fn(cast_seq, *args, **kwargs)
@@ -87,6 +88,7 @@ def sequence_promote(mod, fn, handle, verbose=False):
             # TODO: other mixed-type cases aren't due to amp.
             #       Just pass through?
             return orig_fn(seq, *args, **kwargs)
+
     utils.set_func_save(handle, mod, fn, wrapper)
 
 def promote_match_arg0(mod, fn, handle, verbose=False):
@@ -140,10 +142,10 @@ def err_if_arg0_half(mod, fn, handle, verbose=False):
         if utils.type_string(arg0) == 'HalfTensor':
             raise NotImplementedError('Cannot call in-place method ' +
                                       '{} on fp16 Tensors.'.format(fn))
-        else:
-            cast_fn = utils.verbosify(utils.maybe_float, fn, verbose)
-            new_args = utils.casted_args(cast_fn, args, kwargs)
-            return orig_fn(arg0, *new_args, **kwargs)
+        cast_fn = utils.verbosify(utils.maybe_float, fn, verbose)
+        new_args = utils.casted_args(cast_fn, args, kwargs)
+        return orig_fn(arg0, *new_args, **kwargs)
+
     utils.set_func_save(handle, mod, fn, wrapper)
 
 # Current RNN approach:
@@ -181,7 +183,7 @@ def rnn_cast(backend, fn, handle, verbose=False):
         forward = orig_rnn(*args, **kwargs)
         @functools.wraps(forward)
         def fwd_wrapper(*fargs, **fkwargs):
-            assert len(fargs) == 3 or len(fargs) == 4
+            assert len(fargs) in {3, 4}
             inputs, weights, hiddens = fargs[:3]
             assert utils.is_fp_tensor(inputs)
             assert isinstance(weights, list)
@@ -216,7 +218,9 @@ def rnn_cast(backend, fn, handle, verbose=False):
                 new_args.append(fargs[3])
 
             return forward(*new_args, **fkwargs)
+
         return fwd_wrapper
+
     utils.set_func_save(handle, backend, fn, rnn_wrapper)
 
 def new_rnn_cast(fn, handle, verbose=False):
@@ -237,20 +241,16 @@ def new_rnn_cast(fn, handle, verbose=False):
     def wrapper(*args, **kwargs):
         # Exact call signature from modules/rnn.py
         assert len(args) == 9
-        assert len(kwargs) == 0
+        assert not kwargs
 
         if not _amp_state.handle.is_active():
             return orig_fn(*args, **kwargs)
 
-        if isinstance(args[6], bool):
-            params_idx = 2 # Not PackedSequence case
-        else:
-            params_idx = 3 # PackedSequence case
-
+        params_idx = 2 if isinstance(args[6], bool) else 3
         new_args = []
         for i, arg in enumerate(args):
             if i == params_idx:
-                num_params = sum([x.numel() for x in arg])
+                num_params = sum(x.numel() for x in arg)
                 fp16_weight_buf = args[0].new_empty((num_params,),
                                                     dtype=torch.half)
                 casted_weights = utils.new_synthesize_flattened_rnn_weights(
@@ -262,6 +262,7 @@ def new_rnn_cast(fn, handle, verbose=False):
                 new_args.append(arg)
 
         return orig_fn(*new_args)
+
     utils.set_func_save(handle, mod, fn, wrapper)
 
 def disable_casts(mod, fn, handle):

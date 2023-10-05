@@ -27,7 +27,7 @@ class EmptyLabeller():
 
     def get_batch_labels(self, metas, device='cpu'):
         ys, infos = [], []
-        for meta in metas:
+        for _ in metas:
             label = self.get_label()
             y, info = label['y'], label['info']
             ys.append(y)

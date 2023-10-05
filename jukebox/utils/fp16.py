@@ -71,7 +71,7 @@ class LossScalar(object):
                  init_scale=2. ** 16,
                  scale_factor=2. ** (1. / 1000),
                  scale_window=1):
-        if loss_scale == None:
+        if loss_scale is None:
             # Use dynamic loss scaling
             self.dynamic = True
             self.loss_scale = init_scale
@@ -106,9 +106,21 @@ def grad_norm(params, scale, flat=False):
     if flat:
         # Faster but more memory
         fp16_grads = [p.grad for p in params if p.grad is not None and p.data.dtype == torch.float16]
-        fp16_norm = 0.0 if len(fp16_grads) == 0 else float(_flatten_dense_tensors(fp16_grads).norm(p=2, dtype=torch.float32))
+        fp16_norm = (
+            0.0
+            if not fp16_grads
+            else float(
+                _flatten_dense_tensors(fp16_grads).norm(
+                    p=2, dtype=torch.float32
+                )
+            )
+        )
         fp32_grads = [p.grad for p in params if p.grad is not None and p.data.dtype != torch.float16]
-        fp32_norm = 0.0 if len(fp32_grads) == 0 else float(_flatten_dense_tensors(fp32_grads).norm(p=2))
+        fp32_norm = (
+            0.0
+            if not fp32_grads
+            else float(_flatten_dense_tensors(fp32_grads).norm(p=2))
+        )
         grad_norm = (fp16_norm**2 + fp32_norm**2)**0.5
     else:
         # Slightly slower but less memory
@@ -170,10 +182,7 @@ class FP16FusedAdam(Optimizer):
             scale (float, optional): factor to divide gradient tensor values
                 by before applying to weights. (default: 1)
         """
-        loss = None
-        if closure is not None:
-            loss = closure()
-
+        loss = closure() if closure is not None else None
         for group in self.param_groups:
             bias_correction = 1 if group["bias_correction"] else 0
 
@@ -254,10 +263,7 @@ class FusedAdam(Optimizer):
             scale (float, optional): factor to divide gradient tensor values
                 by before applying to weights. (default: 1)
         """
-        loss = None
-        if closure is not None:
-            loss = closure()
-
+        loss = closure() if closure is not None else None
         for group in self.param_groups:
             bias_correction = 1 if group["bias_correction"] else 0
 

@@ -49,6 +49,6 @@ def parse(graph):
     # two pass token replacement, appends opname to object id
     mapping = {}
     for node in nodes:
-        mapping[node.name] = node.op + '_' + node.name
+        mapping[node.name] = f'{node.op}_{node.name}'
 
     return GraphDef(node=nodes, versions=VersionDef(producer=22))

@@ -45,22 +45,19 @@ def promote_function(fn):
 # Registry form
 def register_half_function(module, name):
     if not hasattr(module, name):
-        raise ValueError('No function named {} in module {}.'.format(
-            name, module))
+        raise ValueError(f'No function named {name} in module {module}.')
     _USER_CAST_REGISTRY.add((module, name, utils.maybe_half))
 
 
 def register_float_function(module, name):
     if not hasattr(module, name):
-        raise ValueError('No function named {} in module {}.'.format(
-            name, module))
+        raise ValueError(f'No function named {name} in module {module}.')
     _USER_CAST_REGISTRY.add((module, name, utils.maybe_float))
 
 
 def register_promote_function(module, name):
     if not hasattr(module, name):
-        raise ValueError('No function named {} in module {}.'.format(
-            name, module))
+        raise ValueError(f'No function named {name} in module {module}.')
     _USER_PROMOTE_REGISTRY.add((module, name))
 
 

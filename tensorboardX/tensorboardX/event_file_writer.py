@@ -37,8 +37,7 @@ class EventsWriter(object):
         Events files have a name of the form
         '/some/file/path/events.out.tfevents.[timestamp].[hostname]'
         '''
-        self._file_name = file_prefix + ".out.tfevents." + str(time.time())[:10] + "." +\
-            socket.gethostname() + filename_suffix
+        self._file_name = f"{file_prefix}.out.tfevents.{str(time.time())[:10]}.{socket.gethostname()}{filename_suffix}"
         self._num_outstanding_events = 0
         self._py_recordio_writer = RecordWriter(self._file_name)
         # Initialize an event instance.

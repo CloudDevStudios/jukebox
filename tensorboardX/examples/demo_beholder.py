@@ -34,10 +34,14 @@ tensor_and_name = namedtuple('tensor_and_name', 'tensor, name')
 
 def beholder_pytorch():
     for i in range(1000):
-        fake_param = [tensor_and_name(np.random.randn(128, 768, 3), 'test' + str(i))
-                      for i in range(5)]
-        arrays = [tensor_and_name(np.random.randn(128, 768, 3), 'test' + str(i))
-                  for i in range(5)]
+        fake_param = [
+            tensor_and_name(np.random.randn(128, 768, 3), f'test{str(i)}')
+            for i in range(5)
+        ]
+        arrays = [
+            tensor_and_name(np.random.randn(128, 768, 3), f'test{str(i)}')
+            for i in range(5)
+        ]
         beholder = beholder_lib.Beholder(logdir=LOG_DIRECTORY)
         beholder.update(
             trainable=fake_param,

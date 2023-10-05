@@ -44,17 +44,16 @@ def setup_dist_from_mpi(
 ):
     if dist.is_available():
         return _setup_dist_from_mpi(master_addr, backend, port, n_attempts, verbose)
-    else:
-        use_cuda = torch.cuda.is_available()
-        print(f'Using cuda {use_cuda}')
+    use_cuda = torch.cuda.is_available()
+    print(f'Using cuda {use_cuda}')
 
-        mpi_rank = 0
-        local_rank = 0
+    mpi_rank = 0
+    local_rank = 0
 
-        device = torch.device("cuda", local_rank) if use_cuda else torch.device("cpu")
-        torch.cuda.set_device(local_rank)
+    device = torch.device("cuda", local_rank) if use_cuda else torch.device("cpu")
+    torch.cuda.set_device(local_rank)
 
-        return mpi_rank, local_rank, device
+    return mpi_rank, local_rank, device
 
 def _setup_dist_from_mpi(master_addr, backend, port, n_attempts, verbose):
     from mpi4py import MPI  # This must be imported in order to get e   rrors from all ranks to show up
@@ -83,7 +82,7 @@ def _setup_dist_from_mpi(master_addr, backend, port, n_attempts, verbose):
     # We guard against the failure and then retry
     for attempt_idx in range(n_attempts):
         try:
-            dist.init_process_group(backend=backend, init_method=f"env://")
+            dist.init_process_group(backend=backend, init_method="env://")
             assert dist.get_rank() == mpi_rank
 
             use_cuda = torch.cuda.is_available()
@@ -96,6 +95,4 @@ def _setup_dist_from_mpi(master_addr, backend, port, n_attempts, verbose):
         except RuntimeError as e:
             print(f"Caught error during NCCL init (attempt {attempt_idx} of {n_attempts}): {e}")
             sleep(1 + (0.01 * mpi_rank))  # Sleep to avoid thundering herd
-            pass
-
     raise RuntimeError("Failed to initialize NCCL")

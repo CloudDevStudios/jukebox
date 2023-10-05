@@ -55,17 +55,15 @@ def append_pbtxt(metadata, label_img, save_path, subdir, global_step, tag):
     with open(os.path.join(save_path, 'projector_config.pbtxt'), 'a') as f:
         # step = os.path.split(save_path)[-1]
         f.write('embeddings {\n')
-        f.write('tensor_name: "{}:{}"\n'.format(
-            tag, str(global_step).zfill(5)))
-        f.write('tensor_path: "{}"\n'.format(join(subdir, 'tensors.tsv')))
+        f.write(f'tensor_name: "{tag}:{str(global_step).zfill(5)}"\n')
+        f.write(f"""tensor_path: "{join(subdir, 'tensors.tsv')}"\n""")
         if metadata is not None:
-            f.write('metadata_path: "{}"\n'.format(
-                join(subdir, 'metadata.tsv')))
+            f.write(f"""metadata_path: "{join(subdir, 'metadata.tsv')}"\n""")
         if label_img is not None:
             f.write('sprite {\n')
-            f.write('image_path: "{}"\n'.format(join(subdir, 'sprite.png')))
-            f.write('single_image_dim: {}\n'.format(label_img.shape[3]))
-            f.write('single_image_dim: {}\n'.format(label_img.shape[2]))
+            f.write(f"""image_path: "{join(subdir, 'sprite.png')}"\n""")
+            f.write(f'single_image_dim: {label_img.shape[3]}\n')
+            f.write(f'single_image_dim: {label_img.shape[2]}\n')
             f.write('}\n')
         f.write('}\n')
 

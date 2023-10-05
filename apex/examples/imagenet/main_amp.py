@@ -93,11 +93,14 @@ def fast_collate(batch):
 best_prec1 = 0
 args = parser.parse_args()
 
-print("opt_level = {}".format(args.opt_level))
-print("keep_batchnorm_fp32 = {}".format(args.keep_batchnorm_fp32), type(args.keep_batchnorm_fp32))
-print("loss_scale = {}".format(args.loss_scale), type(args.loss_scale))
+print(f"opt_level = {args.opt_level}")
+print(
+    f"keep_batchnorm_fp32 = {args.keep_batchnorm_fp32}",
+    type(args.keep_batchnorm_fp32),
+)
+print(f"loss_scale = {args.loss_scale}", type(args.loss_scale))
 
-print("\nCUDNN VERSION: {}\n".format(torch.backends.cudnn.version()))
+print(f"\nCUDNN VERSION: {torch.backends.cudnn.version()}\n")
 
 if args.deterministic:
     cudnn.benchmark = False
@@ -140,7 +143,7 @@ def main():
     model = model.cuda()
 
     # Scale learning rate based on global batch size
-    args.lr = args.lr*float(args.batch_size*args.world_size)/256. 
+    args.lr = args.lr*float(args.batch_size*args.world_size)/256.
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
@@ -188,13 +191,10 @@ def main():
     traindir = os.path.join(args.data, 'train')
     valdir = os.path.join(args.data, 'val')
 
-    if(args.arch == "inception_v3"):
+    if (args.arch == "inception_v3"):
         raise RuntimeError("Currently, inception_v3 is not supported by this example.")
-        # crop_size = 299
-        # val_size = 320 # I chose this value arbitrarily, we can adjust.
-    else:
-        crop_size = 224
-        val_size = 256
+    crop_size = 224
+    val_size = 256
 
     train_dataset = datasets.ImageFolder(
         traindir,
@@ -328,8 +328,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
             if i > 10:
                 break
 
-        # compute output
-        if args.prof: torch.cuda.nvtx.range_push("forward")
+            torch.cuda.nvtx.range_push("forward")
         output = model(input)
         if args.prof: torch.cuda.nvtx.range_pop()
         loss = criterion(output, target)
@@ -356,7 +355,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
             # Measure accuracy
             prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
-   
+
             # Average loss and accuracy across processes for logging 
             if args.distributed:
                 reduced_loss = reduce_tensor(loss.data)
@@ -364,12 +363,12 @@ def train(train_loader, model, criterion, optimizer, epoch):
                 prec5 = reduce_tensor(prec5)
             else:
                 reduced_loss = loss.data
-   
+
             # to_python_float incurs a host<->device sync
             losses.update(to_python_float(reduced_loss), input.size(0))
             top1.update(to_python_float(prec1), input.size(0))
             top5.update(to_python_float(prec5), input.size(0))
-    
+
             torch.cuda.synchronize()
             batch_time.update((time.time() - end)/args.print_freq)
             end = time.time()

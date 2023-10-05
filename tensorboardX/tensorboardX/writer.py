@@ -242,7 +242,8 @@ class SummaryWriter(object):
             from datetime import datetime
             current_time = datetime.now().strftime('%b%d_%H-%M-%S')
             logdir = os.path.join(
-                'runs', current_time + '_' + socket.gethostname() + comment)
+                'runs', f'{current_time}_{socket.gethostname()}{comment}'
+            )
         self.logdir = logdir
         self.purge_step = purge_step
         self._max_queue = max_queue
@@ -420,7 +421,7 @@ class SummaryWriter(object):
         walltime = time.time() if walltime is None else walltime
         fw_logdir = self._get_file_writer().get_logdir()
         for tag, scalar_value in tag_scalar_dict.items():
-            fw_tag = fw_logdir + "/" + main_tag + "/" + tag
+            fw_tag = f"{fw_logdir}/{main_tag}/{tag}"
             if fw_tag in self.all_writers.keys():
                 fw = self.all_writers[fw_tag]
             else:
@@ -623,7 +624,7 @@ class SummaryWriter(object):
         if self._check_caffe2_blob(img_tensor):
             img_tensor = workspace.FetchBlob(img_tensor)
         if isinstance(img_tensor, list):  # a list of tensors in CHW or HWC
-            if dataformats.upper() != 'CHW' and dataformats.upper() != 'HWC':
+            if dataformats.upper() not in ['CHW', 'HWC']:
                 print('A list of image is passed, but the dataformat is neither CHW nor HWC.')
                 print('Nothing is written.')
                 return
@@ -634,7 +635,7 @@ class SummaryWriter(object):
                 import numpy as np
                 img_tensor = np.stack(img_tensor, 0)
 
-            dataformats = 'N' + dataformats
+            dataformats = f'N{dataformats}'
 
         self._get_file_writer().add_summary(
             image(tag, img_tensor, dataformats=dataformats), global_step, walltime)
@@ -762,9 +763,7 @@ class SummaryWriter(object):
             # A valid PyTorch model should have a 'forward' method
             import torch
             from distutils.version import LooseVersion
-            if LooseVersion(torch.__version__) >= LooseVersion("0.3.1"):
-                pass
-            else:
+            if LooseVersion(torch.__version__) < LooseVersion("0.3.1"):
                 if LooseVersion(torch.__version__) >= LooseVersion("0.3.0"):
                     print('You are using PyTorch==0.3.0, use add_onnx_graph()')
                     return
@@ -844,7 +843,7 @@ class SummaryWriter(object):
             # clear pbtxt?
         # Maybe we should encode the tag so slashes don't trip us up?
         # I don't think this will mess us up, but better safe than sorry.
-        subdir = "%s/%s" % (str(global_step).zfill(5), self._encode(tag))
+        subdir = f"{str(global_step).zfill(5)}/{self._encode(tag)}"
         save_path = os.path.join(self._get_file_writer().get_logdir(), subdir)
         try:
             os.makedirs(save_path)

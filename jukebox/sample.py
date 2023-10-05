@@ -180,7 +180,9 @@ def save_samples(model, device, hps, sample_hps):
     from jukebox.lyricdict import poems, gpt_2_lyrics
     vqvae, priors = make_model(model, device, hps)
 
-    assert hps.sample_length//priors[-2].raw_to_tokens >= priors[-2].n_ctx, f"Upsampling needs atleast one ctx in get_z_conds. Please choose a longer sample length"
+    assert (
+        hps.sample_length // priors[-2].raw_to_tokens >= priors[-2].n_ctx
+    ), "Upsampling needs atleast one ctx in get_z_conds. Please choose a longer sample length"
 
     total_length = hps.total_sample_length_in_seconds * hps.sr
     offset = 0

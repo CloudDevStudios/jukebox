@@ -36,10 +36,10 @@ version_git = version = '1.8'
 if not preparing_PyPI_package:
     if os.path.exists('.git'):
         sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
-        version_git = version_git + '+' + sha[:7]
+        version_git = f'{version_git}+{sha[:7]}'
 
     with open('tensorboardX/__init__.py', 'a') as f:
-        f.write('\n__version__ = "{}"\n'.format(version_git))
+        f.write(f'\n__version__ = "{version_git}"\n')
 
 requirements = [
     'numpy',
