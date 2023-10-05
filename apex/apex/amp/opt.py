@@ -45,7 +45,7 @@ class OptimWrapper(object):
         self._skip_next[self._loss_idx] = self._cur_loss_scaler().update_scale()
         self._loss_idx += 1
 
-        if len(cached_grads) > 0:
+        if cached_grads:
             for p, cached_grad in zip(master_params(self._optimizer),
                                       cached_grads):
                 if cached_grad is not None:
@@ -70,11 +70,10 @@ class OptimWrapper(object):
             raise NotImplementedError(
                 'The `closure` argument is unsupported by the amp ' +
                 'optimizer wrapper.')
-        if any(self._skip_next):
-            maybe_print('Gradient overflow, skipping update')
-            self._skip_next = [False] * self._num_loss
-        else:
+        if not any(self._skip_next):
             return self._optimizer.step(closure=closure)
+        maybe_print('Gradient overflow, skipping update')
+        self._skip_next = [False] * self._num_loss
 
     # Forward any attribute lookups
     def __getattr__(self, attr):

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Chainer example: train a VAE on MNIST
 """
+
 from __future__ import print_function
 import argparse
 
@@ -45,10 +46,10 @@ n_latent = args.dimz
 
 writer.add_text('config', str(args))
 
-print('GPU: {}'.format(args.gpu))
-print('# dim z: {}'.format(args.dimz))
-print('# Minibatch-size: {}'.format(args.batchsize))
-print('# epoch: {}'.format(args.epoch))
+print(f'GPU: {args.gpu}')
+print(f'# dim z: {args.dimz}')
+print(f'# Minibatch-size: {args.batchsize}')
+print(f'# epoch: {args.epoch}')
 print('')
 
 # Prepare dataset
@@ -59,8 +60,8 @@ mnist['data'] /= 255
 mnist['target'] = mnist['target'].astype(np.int32)
 
 if args.test:
-    mnist['data'] = mnist['data'][0:100]
-    mnist['target'] = mnist['target'][0:100]
+    mnist['data'] = mnist['data'][:100]
+    mnist['target'] = mnist['target'][:100]
     N = 30
 else:
     N = 60000
@@ -110,8 +111,9 @@ for epoch in six.moves.range(1, n_epoch + 1):
         sum_loss += float(model.loss.data) * len(x.data)
         sum_rec_loss += float(model.rec_loss.data) * len(x.data)
 
-    print('train mean loss={}, mean reconstruction loss={}'
-          .format(sum_loss / N, sum_rec_loss / N))
+    print(
+        f'train mean loss={sum_loss / N}, mean reconstruction loss={sum_rec_loss / N}'
+    )
 
     # evaluation
     sum_loss = 0
@@ -131,8 +133,9 @@ for epoch in six.moves.range(1, n_epoch + 1):
             writer.add_image('input', x.reshape(-1, 1, 28, 28),
                              epoch * N_test + i)
             del model.loss
-    print('test  mean loss={}, mean reconstruction loss={}'
-          .format(sum_loss / N_test, sum_rec_loss / N_test))
+    print(
+        f'test  mean loss={sum_loss / N_test}, mean reconstruction loss={sum_rec_loss / N_test}'
+    )
 
 
 # Save the model and the optimizer

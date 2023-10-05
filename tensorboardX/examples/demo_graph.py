@@ -172,8 +172,7 @@ class SiameseNetwork(nn.Module):
         self.cnn1 = Net1()
 
     def forward_once(self, x):
-        output = self.cnn1(x)
-        return output
+        return self.cnn1(x)
 
     def forward(self, input1, input2):
         output1 = self.forward_once(input1)

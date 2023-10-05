@@ -95,7 +95,7 @@ class AsyncWriterTest(): #unittest.TestCase):
     w = _AsyncWriter(filename)
     bytes_to_write = b"hello world"
     repeat = 100
-    for i in range(repeat):
+    for _ in range(repeat):
       w.write(bytes_to_write)
     w.close()
     with open(filename, 'rb') as f:
@@ -106,7 +106,7 @@ class AsyncWriterTest(): #unittest.TestCase):
     w = _AsyncWriter(filename, max_queue_size=1)
     bytes_to_write = b"hello world"
     repeat = 10  # faster
-    for i in range(repeat):
+    for _ in range(repeat):
       w.write(bytes_to_write)
     w.close()
     with open(filename, 'rb') as f:

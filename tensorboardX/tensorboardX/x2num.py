@@ -31,7 +31,8 @@ def make_np(x):
     if 'mxnet' in str(type(x)):
         return check_nan(prepare_mxnet(x))
     raise NotImplementedError(
-        'Got {}, but expected numpy array or torch tensor.'.format(type(x)))
+        f'Got {type(x)}, but expected numpy array or torch tensor.'
+    )
 
 
 def prepare_pytorch(x):
@@ -44,7 +45,6 @@ def prepare_pytorch(x):
 
 def prepare_theano(x):
     import theano
-    pass
 
 
 def prepare_caffe2(x):

@@ -19,16 +19,10 @@ def is_available():
     return dist.is_available()
 
 def get_rank():
-    if is_available():
-        return _get_rank()
-    else:
-        return 0
+    return _get_rank() if is_available() else 0
 
 def get_world_size():
-    if is_available():
-        return _get_world_size()
-    else:
-        return 1
+    return _get_world_size() if is_available() else 1
 
 def barrier():
     if is_available():

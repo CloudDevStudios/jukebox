@@ -107,7 +107,7 @@ class VQVAE(nn.Module):
         assert len(xs_quantised) == end_level - start_level
 
         # Use only lowest level
-        decoder, x_quantised = self.decoders[start_level], xs_quantised[0:1]
+        decoder, x_quantised = self.decoders[start_level], xs_quantised[:1]
         x_out = decoder(x_quantised, all_levels=False)
         x_out = self.postprocess(x_out)
         return x_out
@@ -140,8 +140,7 @@ class VQVAE(nn.Module):
         for x_i in x_chunks:
             zs_i = self._encode(x_i, start_level=start_level, end_level=end_level)
             zs_list.append(zs_i)
-        zs = [t.cat(zs_level_list, dim=0) for zs_level_list in zip(*zs_list)]
-        return zs
+        return [t.cat(zs_level_list, dim=0) for zs_level_list in zip(*zs_list)]
 
     def sample(self, n_samples):
         zs = [t.randint(0, self.l_bins, size=(n_samples, *z_shape), device='cuda') for z_shape in self.z_shapes]

@@ -27,7 +27,7 @@ _amp_state = AmpState()
 
 def warn_or_err(msg):
     if _amp_state.hard_override:
-        print("Warning:  " + msg)
+        print(f"Warning:  {msg}")
     else:
         raise RuntimeError(msg)
         # I'm not sure if allowing hard_override is a good idea.
@@ -66,5 +66,4 @@ def master_params(optimizer):
         optimizer: An optimizer previously returned from ``amp.initialize``.
     """
     for group in optimizer.param_groups:
-        for p in group['params']:
-            yield p
+        yield from group['params']

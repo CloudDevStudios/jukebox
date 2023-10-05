@@ -50,9 +50,8 @@ class Conditioner(nn.Module):
 def flip(x):
     def _flip(x):
         return x.permute(0,2,1).contiguous()
-    if isinstance(x, (list, tuple)):
-        return [flip(z) for z in x]
-    return _flip(x)
+
+    return [flip(z) for z in x] if isinstance(x, (list, tuple)) else _flip(x)
 
 class SimpleEmbedding(nn.Module):
     def __init__(self, bins, out_width, init_scale):
@@ -64,7 +63,9 @@ class SimpleEmbedding(nn.Module):
     def forward(self, y):
         assert len(y.shape) == 2, f"Expected shape with 2 dims, got {y.shape}"
         assert isinstance(y, t.cuda.LongTensor), f"Expected dtype {t.cuda.LongTensor}, got {y.dtype}"
-        assert (0 <= y).all() and (y < self.bins).all(), f"Bins {self.bins}, got label {y}"
+        assert (y >= 0).all() and (
+            y < self.bins
+        ).all(), f"Bins {self.bins}, got label {y}"
         return self.emb(y)
 
 class RangeEmbedding(nn.Module):

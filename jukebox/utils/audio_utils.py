@@ -62,10 +62,7 @@ def audio_preprocess(x, hps):
     # x: NTC
     x = x.float()
     if x.shape[-1]==2:
-        if hps.aug_blend:
-            mix=t.rand((x.shape[0],1), device=x.device) #np.random.rand()
-        else:
-            mix = 0.5
+        mix = t.rand((x.shape[0],1), device=x.device) if hps.aug_blend else 0.5
         x=(mix*x[:,:,0]+(1-mix)*x[:,:,1])
     elif x.shape[-1]==1:
         x=x[:,:,0]

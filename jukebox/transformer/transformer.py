@@ -79,11 +79,7 @@ class ResAttnBlock(nn.Module):
             m = checkpoint(lambda _x: self.mlp(self.ln_1(_x)), (x + a,),
                            (*self.mlp.parameters(), *self.ln_1.parameters()),
                            self.checkpoint_mlp == 1)
-        if self.res_scale == 1.0:
-            h = x + a + m
-        else:
-            h = x + self.res_scale * (a + m)
-        return h
+        return x + a + m if self.res_scale == 1.0 else x + self.res_scale * (a + m)
 
 class Transformer(nn.Module):
     def __init__(self, n_in, n_ctx, n_head, n_depth,
@@ -155,12 +151,13 @@ class Transformer(nn.Module):
             if isinstance(record_attn, bool):
                 return record_attn
             return layer_idx in record_attn
+
         for i, l in enumerate(self._attn_mods):
             l.attn.record_attn = _should_record_attn(i)
         if record_attn:
             assert self.ws == []
             for l in self._attn_mods:
-                assert l.attn.w == None
+                assert l.attn.w is None
         else:
             self.ws = []
             for l in self._attn_mods:
@@ -180,11 +177,10 @@ class Transformer(nn.Module):
                 else:
                     f = functools.partial(l, encoder_kv=None, sample=sample)
                     x = checkpoint(f, (x,), l.parameters(), True)
+            elif l.attn_func == 6:
+                x = l(x, encoder_kv=encoder_kv, sample=sample)
             else:
-                if l.attn_func == 6:
-                    x = l(x, encoder_kv=encoder_kv, sample=sample)
-                else:
-                    x = l(x, encoder_kv=None, sample=sample)
+                x = l(x, encoder_kv=None, sample=sample)
             if l.attn.record_attn:
                 self.ws.append(l.attn.w)
         if not fp16_out:

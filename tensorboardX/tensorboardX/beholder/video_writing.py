@@ -65,8 +65,11 @@ class VideoWriter(object):
                 self.output.emit_frame(np_array)
                 return
             except (IOError, OSError) as e:
-                print('Video output type %s not available: %s',
-                      self.current_output().name(), str(e))
+                print(
+                    'Video output type %s not available: %s',
+                    self.current_output().name(),
+                    e,
+                )
                 if self.output:
                     self.output.close()
                 self.output = None
@@ -113,7 +116,7 @@ class PNGVideoOutput(VideoOutput):
 
     def __init__(self, directory, frame_shape):
         del frame_shape  # unused
-        self.directory = directory + '/video-frames-{}'.format(time.time())
+        self.directory = f'{directory}/video-frames-{time.time()}'
         self.frame_num = 0
         os.makedirs(self.directory)
 
@@ -145,10 +148,9 @@ class FFmpegVideoOutput(VideoOutput):
             return False
 
     def __init__(self, directory, frame_shape):
-        self.filename = directory + '/video-{}.webm'.format(time.time())
+        self.filename = f'{directory}/video-{time.time()}.webm'
         if len(frame_shape) != 3:
-            raise ValueError(
-                'Expected rank-3 array for frame, got %s' % str(frame_shape))
+            raise ValueError(f'Expected rank-3 array for frame, got {str(frame_shape)}')
         # Set input pixel format based on channel count.
         if frame_shape[2] == 1:
             pix_fmt = 'gray'

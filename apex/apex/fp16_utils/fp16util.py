@@ -65,7 +65,9 @@ def convert_network(network, dtype):
         if isinstance(module, torch.nn.modules.batchnorm._BatchNorm) and module.affine is True:
             continue
         convert_module(module, dtype)
-        if isinstance(module, torch.nn.RNNBase) or isinstance(module, torch.nn.modules.rnn.RNNBase):
+        if isinstance(
+            module, (torch.nn.RNNBase, torch.nn.modules.rnn.RNNBase)
+        ):
             module.flatten_parameters()
     return network
 
@@ -174,10 +176,7 @@ def master_params_to_model_params(model_params, master_params, flat_master=False
 # Backward compatibility fixes
 
 def to_python_float(t):
-    if hasattr(t, 'item'):
-        return t.item()
-    else:
-        return t[0]
+    return t.item() if hasattr(t, 'item') else t[0]
 
 TORCH_MAJOR = int(torch.__version__.split('.')[0])
 TORCH_MINOR = int(torch.__version__.split('.')[1])

@@ -34,44 +34,45 @@ class TestMultiTensorScale(unittest.TestCase):
 
     # The tensor creation here is written for convenience, not speed.
     def downscale(self, sizea, sizeb, applier, repeat_tensors, in_type, out_type, inplace=False):
-        self.overflow_buf.zero_()
-        a = torch.cuda.FloatTensor(sizea).fill_(self.scale)
-        b = torch.cuda.FloatTensor(sizeb).fill_(self.scale)
+      self.overflow_buf.zero_()
+      a = torch.cuda.FloatTensor(sizea).fill_(self.scale)
+      b = torch.cuda.FloatTensor(sizeb).fill_(self.scale)
 
-        out_list = []
-        for i in range(repeat_tensors):
-            out_list += [a.clone().to(out_type), b.clone().to(out_type)]
+      out_list = []
+      for _ in range(repeat_tensors):
+        out_list += [a.clone().to(out_type), b.clone().to(out_type)]
 
-        if inplace:
-            in_list = out_list
-        else:
-            in_list = [out.clone().to(in_type) for out in out_list]
+      if inplace:
+          in_list = out_list
+      else:
+          in_list = [out.clone().to(in_type) for out in out_list]
 
-        applier(multi_tensor_scale, self.overflow_buf, [in_list, out_list], 1./self.scale)
+      applier(multi_tensor_scale, self.overflow_buf, [in_list, out_list], 1./self.scale)
 
-        self.assertTrue(all([torch.allclose(out, self.ref.to(out_type)) for out in out_list]))
-        self.assertTrue(self.overflow_buf.item() == 0)
+      self.assertTrue(
+          all(torch.allclose(out, self.ref.to(out_type)) for out in out_list))
+      self.assertTrue(self.overflow_buf.item() == 0)
  
     def find_inf(self, sizea, sizeb, applier, repeat_tensors, in_type, out_type, t, ind, val, inplace=False):
-        self.overflow_buf.zero_()
-        a = torch.cuda.FloatTensor(sizea).fill_(self.scale)
-        b = torch.cuda.FloatTensor(sizeb).fill_(self.scale)
+      self.overflow_buf.zero_()
+      a = torch.cuda.FloatTensor(sizea).fill_(self.scale)
+      b = torch.cuda.FloatTensor(sizeb).fill_(self.scale)
 
-        out_list = []
-        for i in range(repeat_tensors):
-            out_list += [a.clone().to(out_type), b.clone().to(out_type)]
+      out_list = []
+      for _ in range(repeat_tensors):
+        out_list += [a.clone().to(out_type), b.clone().to(out_type)]
 
-        if inplace:
-            in_list = out_list
-        else:
-            in_list = [out.clone().to(in_type) for out in out_list]
+      if inplace:
+          in_list = out_list
+      else:
+          in_list = [out.clone().to(in_type) for out in out_list]
 
-        applier(multi_tensor_scale, self.overflow_buf, [in_list, out_list], 1./self.scale)
+      applier(multi_tensor_scale, self.overflow_buf, [in_list, out_list], 1./self.scale)
 
-        self.overflow_buf.zero_()
-        in_list[t][ind] = val
-        applier(multi_tensor_scale, self.overflow_buf, [in_list, out_list], 1./self.scale)
-        self.assertTrue(self.overflow_buf.item())
+      self.overflow_buf.zero_()
+      in_list[t][ind] = val
+      applier(multi_tensor_scale, self.overflow_buf, [in_list, out_list], 1./self.scale)
+      self.assertTrue(self.overflow_buf.item())
 
     # Currently, the fused kernel gives a hard error if you attempt to downscale
     # into fp16 output, which imo is the desired behavior.  Maybe someday we
@@ -86,39 +87,36 @@ class TestMultiTensorScale(unittest.TestCase):
 
     @unittest.skipIf(disabled, "amp_C is unavailable")
     def test_fuzz(self):
-        input_size_pairs = (
-            (7777*77, 555*555),
-            (777, 555),
-            (555, 2048*32+1),
-            (2048*32+1, 555),
-            (555, 2048*32),
-            (2048*32, 555),
-            (33333, 555),
-            (555, 33333))
-        appliers = (
-            MultiTensorApply(2048*32), 
-            MultiTensorApply(333),
-            MultiTensorApply(33333))
-        repeat_tensors = (
-            1,
-            55)
+      input_size_pairs = (
+          (7777*77, 555*555),
+          (777, 555),
+          (555, 2048*32+1),
+          (2048*32+1, 555),
+          (555, 2048*32),
+          (2048*32, 555),
+          (33333, 555),
+          (555, 33333))
+      appliers = (
+          MultiTensorApply(2048*32), 
+          MultiTensorApply(333),
+          MultiTensorApply(33333))
+      repeat_tensors = (
+          1,
+          55)
 
-        for sizea, sizeb in input_size_pairs:
-          for applier in appliers:
-            for repeat in repeat_tensors:
-              for in_type in (torch.float32, torch.float16):
-                for out_type in (torch.float32, torch.float16):
-                  for inplace in (True, False):
-                    if inplace is True and (out_type is not in_type):
-                      continue
-                    else:
-                      self.downscale(sizea, sizeb, applier, repeat, in_type, out_type, inplace=inplace)
-                      self.find_inf(sizea, sizeb, applier, repeat, in_type, out_type,
-                                    0, 0, float('nan'), inplace=inplace)
-                      self.find_inf(sizea, sizeb, applier, repeat, in_type, out_type,
-                                    2*repeat-1, sizeb-1, float('inf'), inplace=inplace)
-                      self.find_inf(sizea, sizeb, applier, repeat, in_type, out_type,
-                                   2*(repeat//2), sizea//2, float('inf'), inplace=inplace)
+      for sizea, sizeb in input_size_pairs:
+        for applier, repeat in it.product(appliers, repeat_tensors):
+          for in_type in (torch.float32, torch.float16):
+            for out_type in (torch.float32, torch.float16):
+              for inplace in (True, False):
+                if inplace is not True or out_type is in_type:
+                  self.downscale(sizea, sizeb, applier, repeat, in_type, out_type, inplace=inplace)
+                  self.find_inf(sizea, sizeb, applier, repeat, in_type, out_type,
+                                0, 0, float('nan'), inplace=inplace)
+                  self.find_inf(sizea, sizeb, applier, repeat, in_type, out_type,
+                                2*repeat-1, sizeb-1, float('inf'), inplace=inplace)
+                  self.find_inf(sizea, sizeb, applier, repeat, in_type, out_type,
+                               2*(repeat//2), sizea//2, float('inf'), inplace=inplace)
 
 
 

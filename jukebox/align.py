@@ -27,7 +27,7 @@ def get_alignment(x, zs, labels, prior, fp16, hps):
     hop_length = int(hps.hop_fraction[level]*prior.n_ctx)
     n_head = prior.prior.transformer.n_head
     alignment_head, alignment_layer = prior.alignment_head, prior.alignment_layer
-    attn_layers = set([alignment_layer])
+    attn_layers = {alignment_layer}
     alignment_hops = {}
     indices_hops = {}
 
@@ -86,13 +86,9 @@ def save_alignment(model, device, hps):
     print(hps)
     vqvae, priors = make_model(model, device, hps, levels=[-1])
 
-    logdir = f"{hps.logdir}/level_{0}"
+    logdir = f"{hps.logdir}/level_0"
     data = t.load(f"{logdir}/data.pth.tar")
-    if model == '1b_lyrics':
-        fp16 = False
-    else:
-        fp16 = True
-
+    fp16 = model != '1b_lyrics'
     data['alignments'] = get_alignment(data['x'], data['zs'], data['labels'][-1], priors[-1], fp16, hps)
     t.save(data, f"{logdir}/data_align.pth.tar")
     save_html(logdir, data['x'], data['zs'], data['labels'][-1], data['alignments'], hps)

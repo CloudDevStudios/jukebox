@@ -113,15 +113,14 @@ def remove_reparameterization(module, reparameterization=Reparameterization,
             if isinstance(hook, reparameterization) and (hook.name == name or remove_all):
                 hook.remove(module)
                 to_remove.append(k)
-        if len(to_remove) > 0:
+        if to_remove:
             for k in to_remove:
                 del module._forward_pre_hooks[k]
             return module
         if not remove_all:
-            raise ValueError("reparameterization of '{}' not found in {}"
-                             .format(name, module))
+            raise ValueError(f"reparameterization of '{name}' not found in {module}")
     else:
-        modules = [module]+[x for x in module.modules()]
+        modules = [module] + list(module.modules())
         for m in modules:
             remove_reparameterization(m, reparameterization=reparameterization, remove_all=True)
         return module

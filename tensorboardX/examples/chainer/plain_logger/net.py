@@ -33,10 +33,7 @@ class VAE(chainer.Chain):
     def decode(self, z, sigmoid=True):
         h1 = F.tanh(self.ld1(z))
         h2 = self.ld2(h1)
-        if sigmoid:
-            return F.sigmoid(h2)
-        else:
-            return h2
+        return F.sigmoid(h2) if sigmoid else h2
 
     def get_loss_func(self, C=1.0, k=1):
         """Get loss function of VAE.

@@ -69,7 +69,8 @@ class SimplePrior(nn.Module):
                                                           down_t=downs_t[_level],
                                                           stride_t=strides_t[_level],
                                                           **x_cond_kwargs)
-            if dist.get_rank() == 0: print(f"Conditioning on 1 above level(s)")
+            if dist.get_rank() == 0:
+                print("Conditioning on 1 above level(s)")
             self.conditioner_blocks.append(conditioner_block(self.cond_level))
 
         # Y conditioning
@@ -150,20 +151,16 @@ class SimplePrior(nn.Module):
 
         # Set lyric tokens
         indices = self.labeller.set_y_lyric_tokens(y, labels)
-        if get_indices:
-            return y, indices
-        else:
-            return y
+        return (y, indices) if get_indices else y
 
     def get_z_conds(self, zs, start, end):
         if self.level != self.levels - 1:
             assert start % self.cond_downsample == end % self.cond_downsample == 0
             z_cond = zs[self.level + 1][:,start//self.cond_downsample:end//self.cond_downsample]
             assert z_cond.shape[1] == self.n_ctx//self.cond_downsample
-            z_conds = [z_cond]
+            return [z_cond]
         else:
-            z_conds = None
-        return z_conds
+            return None
 
     def prior_preprocess(self, xs, conds):
         N = xs[0].shape[0]
@@ -171,7 +168,7 @@ class SimplePrior(nn.Module):
             x, shape, dims = xs[i], self.prior_shapes[i], self.prior_dims[i]
             bins, bins_shift = int(self.prior_bins[i]), int(self.prior_bins_shift[i])
             assert isinstance(x, t.cuda.LongTensor), x
-            assert (0 <= x).all() and (x < bins).all()
+            assert (x >= 0).all() and (x < bins).all()
             #assert_shape(x, (N, *shape))
             xs[i] = (xs[i] + bins_shift).view(N, -1)
 
@@ -211,9 +208,9 @@ class SimplePrior(nn.Module):
         return x_cond
 
     def encode(self, x, start_level=None, end_level=None, bs_chunks=1):
-        if start_level == None:
+        if start_level is None:
             start_level = self.level
-        if end_level == None:
+        if end_level is None:
             end_level = self.levels
         # Get latents
         with t.no_grad():
@@ -221,9 +218,9 @@ class SimplePrior(nn.Module):
         return zs
 
     def decode(self, zs, start_level=None, end_level=None, bs_chunks=1):
-        if start_level == None:
+        if start_level is None:
             start_level = self.level
-        if end_level == None:
+        if end_level is None:
             end_level = self.levels
 
         assert len(zs) == end_level - start_level
@@ -233,7 +230,9 @@ class SimplePrior(nn.Module):
 
     def get_cond(self, z_conds, y):
         if y is not None:
-            assert y.shape[1] == 4 + self.y_emb.max_bow_genre_size + self.n_tokens, f"Expected {4} + {self.y_emb.max_bow_genre_size} + {self.n_tokens}, got {y.shape[1]}"
+            assert (
+                y.shape[1] == 4 + self.y_emb.max_bow_genre_size + self.n_tokens
+            ), f"Expected 4 + {self.y_emb.max_bow_genre_size} + {self.n_tokens}, got {y.shape[1]}"
             n_labels = y.shape[1] - self.n_tokens
             y, prime = y[:,:n_labels], y[:,n_labels:]
         else:
@@ -304,10 +303,11 @@ class SimplePrior(nn.Module):
         if self.use_tokens:
             encoder_kv = encoder_kv.float()
             encoder_kv = self.prime_x_out(encoder_kv)
-            prime_loss = nn.functional.cross_entropy(encoder_kv.view(-1, self.prime_bins), prime_t.view(-1)) / np.log(2.)
+            return nn.functional.cross_entropy(
+                encoder_kv.view(-1, self.prime_bins), prime_t.view(-1)
+            ) / np.log(2.0)
         else:
-            prime_loss = t.tensor(0.0, device='cuda')
-        return prime_loss
+            return t.tensor(0.0, device='cuda')
 
     def z_forward(self, z, z_conds=[], y=None, fp16=False, get_preds=False, get_attn_weights=False):
         """
@@ -331,24 +331,20 @@ class SimplePrior(nn.Module):
             prime_loss = self.get_prime_loss(encoder_kv, prime)
             gen_loss, preds = self.prior(z, x_cond, y_cond, encoder_kv, fp16=fp16, get_preds=get_preds)
         loss = (self.prime_loss_fraction*prime_loss*self.prime_loss_dims/self.total_loss_dims) + \
-                   (gen_loss*self.gen_loss_dims/self.total_loss_dims)
+                       (gen_loss*self.gen_loss_dims/self.total_loss_dims)
         metrics=dict(bpd=gen_loss.clone().detach(), prime_loss=prime_loss.clone().detach(),
                      gen_loss=gen_loss.clone().detach())
         if get_preds:
             metrics["preds"] = preds.clone().detach()
-        if get_attn_weights:
-            ws = self.prior.transformer.ws
-            self.prior.transformer.set_record_attn(False)
-            return ws
-        else:
+        if not get_attn_weights:
             return loss, metrics
+        ws = self.prior.transformer.ws
+        self.prior.transformer.set_record_attn(False)
+        return ws
 
     def forward(self, x, y=None, fp16=False, decode=False, get_preds=False):
         bs = x.shape[0]
         z, *z_conds = self.encode(x, bs_chunks=bs)
         loss, metrics = self.z_forward(z=z, z_conds=z_conds, y=y, fp16=fp16, get_preds=get_preds)
-        if decode:
-            x_out = self.decode([z, *z_conds])
-        else:
-            x_out = None
+        x_out = self.decode([z, *z_conds]) if decode else None
         return x_out, loss, metrics

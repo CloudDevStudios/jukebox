@@ -8,8 +8,7 @@ import unittest
 
 def tensor_N(shape, dtype=float):
     numel = np.prod(shape)
-    x = (np.arange(numel, dtype=dtype)).reshape(shape)
-    return x
+    return (np.arange(numel, dtype=dtype)).reshape(shape)
 
 class SummaryTest(unittest.TestCase):
     def test_uint8_image(self):

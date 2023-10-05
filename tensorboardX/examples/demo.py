@@ -33,17 +33,20 @@ for n_iter in range(100):
     if n_iter % 10 == 0:
         x = vutils.make_grid(x, normalize=True, scale_each=True)
         writer.add_image('Image', x, n_iter)  # Tensor
-        writer.add_image_with_boxes('imagebox_label', torch.ones(3, 240, 240) * 0.5,
-             torch.Tensor([[10, 10, 100, 100], [101, 101, 200, 200]]),
-             n_iter, 
-             labels=['abcde' + str(n_iter), 'fgh' + str(n_iter)])
+        writer.add_image_with_boxes(
+            'imagebox_label',
+            torch.ones(3, 240, 240) * 0.5,
+            torch.Tensor([[10, 10, 100, 100], [101, 101, 200, 200]]),
+            n_iter,
+            labels=[f'abcde{str(n_iter)}', f'fgh{str(n_iter)}'],
+        )
         x = torch.zeros(sample_rate * 2)
         for i in range(x.size(0)):
             # sound amplitude should in [-1, 1]
             x[i] = np.cos(freqs[n_iter // 10] * np.pi *
                           float(i) / float(sample_rate))
         writer.add_audio('myAudio', x, n_iter)
-        writer.add_text('Text', 'text logged at step:' + str(n_iter), n_iter)
+        writer.add_text('Text', f'text logged at step:{str(n_iter)}', n_iter)
         writer.add_text('markdown Text', '''a|b\n-|-\nc|d''', n_iter)
         for name, param in resnet18.named_parameters():
             if 'bn' not in name:

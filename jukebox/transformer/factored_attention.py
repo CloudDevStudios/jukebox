@@ -17,14 +17,12 @@ def get_mask(mask, q_l, kv_l, blocks, spread, device, sample, sample_t):
     if mask is None or q_l == 1:
         return None
     offset = sample_t - q_l if sample else max(kv_l - q_l, 0)
-    if mask == 'autoregressive':
+    if mask == 'autoregressive' or mask != 'summary' and mask == 'prime':
         # Masked dense
         mask = t.ones(q_l, kv_l, device=device).tril(offset)
     elif mask == 'summary':
         # Masked summary
         mask = t.nn.functional.pad(t.ones(q_l, q_l, device=device).tril().view(q_l, blocks, q_l // blocks)[:,:-1,-kv_l//blocks:],(0,0,1,0),value=1).contiguous().view(q_l, kv_l)
-    elif mask == 'prime':
-        mask = t.ones(q_l, kv_l, device=device).tril(offset)
     return mask.view(1,1,q_l,kv_l)
 
 class FactoredAttention(nn.Module):
@@ -95,17 +93,14 @@ class FactoredAttention(nn.Module):
             if mask is not None:
                 #print(mask)
                 w = w * mask + -1e9 * (1 - mask)
-            w = F.softmax(w, dim=-1).type(wtype)
-        else:
-            w = F.softmax(w, dim=-1).type(wtype)
+        w = F.softmax(w, dim=-1).type(wtype)
         if self.record_attn:
             self.w = w #.float().cpu().numpy()
             if self.attn_func == 7:
                 # only keep music queries and lyrics keys/values
                 self.w = self.w[:,:,self.prime_len:,:self.prime_len]
         w = self.attn_dropout(w)
-        a = t.matmul(w, v)
-        return a
+        return t.matmul(w, v)
 
     def merge_heads(self, x):
         x = x.permute(0, 2, 1, 3).contiguous()
@@ -115,10 +110,7 @@ class FactoredAttention(nn.Module):
     def split_heads(self, x, k=False):
         new_x_shape = (*x.size()[:-1], self.n_head, x.size(-1) // self.n_head)
         x = x.view(*new_x_shape)  # in Tensorflow implem: fct split_states
-        if k:
-            return x.permute(0, 2, 3, 1)
-        else:
-            return x.permute(0, 2, 1, 3)
+        return x.permute(0, 2, 3, 1) if k else x.permute(0, 2, 1, 3)
 
     def dense_attn(self, query, key, value, sample):
         query = self.split_heads(query)
@@ -271,13 +263,13 @@ class FactoredAttention(nn.Module):
         return query, key, value, sample
 
     def decode_qkv(self, x, encoder_kv=None, sample=False):
-        curr_ctx = x.shape[1]
         assert encoder_kv is not None
         query = x
         if sample:
             if self.sample_t == 0:
                 self.cache['key'], self.cache['value'] = self.c_enc_kv(encoder_kv.type_as(x)).chunk(2, dim=2)
             key, value = self.cache['key'], self.cache['value']
+            curr_ctx = x.shape[1]
             self.sample_t += curr_ctx
         else:
             key, value = self.c_enc_kv(encoder_kv.type_as(x)).chunk(2, dim=2)
@@ -317,10 +309,7 @@ class FactoredAttention(nn.Module):
         offset = self._offset(l) if query else 0
         n_blocks = (l + offset + self.block_ctx - 1) // self.block_ctx
         pad = n_blocks * self.block_ctx - l - offset
-        if pad == 0 and offset == 0:
-            return x
-        else:
-            return F.pad(x, (0, 0, offset, pad))
+        return x if pad == 0 and offset == 0 else F.pad(x, (0, 0, offset, pad))
 
     def _cache_len(self):
         return 0 if 'key' not in self.cache else self.cache['key'].shape[1]
@@ -341,10 +330,9 @@ class FactoredAttention(nn.Module):
         elif self.attn_func == 3:
             if self.sample_t <= self.block_ctx:
                 return self.sample_t
-            else:
-                curr_block = (self.sample_t - 1) % self.block_ctx + 1
-                prev_block = self.block_ctx
-                return curr_block + prev_block
+            curr_block = (self.sample_t - 1) % self.block_ctx + 1
+            prev_block = self.block_ctx
+            return curr_block + prev_block
         elif self.attn_func == 6:
             return self.encoder_dims
         elif self.attn_func == 7:
@@ -357,10 +345,7 @@ class FactoredAttention(nn.Module):
         self.cache['value'] = self.cache['value'][:, start:end]
 
     def _append_cache(self, key, value):
-        if 'key' not in self.cache:
-            self.cache['key'] = key
-            self.cache['value'] = value
-        else:
+        if 'key' in self.cache:
             old_key, old_value = key, value
             key = t.cat([self.cache['key'], key], dim=1)
             value = t.cat([self.cache['value'], value], dim=1)
@@ -368,8 +353,8 @@ class FactoredAttention(nn.Module):
             del self.cache['value']
             del old_key
             del old_value
-            self.cache['key'] = key
-            self.cache['value'] = value
+        self.cache['key'] = key
+        self.cache['value'] = value
         return self.cache['key'], self.cache['value']
 
     def del_cache(self):
@@ -432,10 +417,7 @@ class FactoredAttention(nn.Module):
 
         with t.no_grad():
             enc_l = self.encoder_dims
-            encoder_kv = None
-            if self.attn_func == 6:
-                encoder_kv = t.randn(bs, enc_l, d).cuda()
-
+            encoder_kv = t.randn(bs, enc_l, d).cuda() if self.attn_func == 6 else None
             # Normal path
             x_out_normal = self.forward(x, encoder_kv=encoder_kv)
 
@@ -461,11 +443,8 @@ class FactoredAttention(nn.Module):
         assert l % chunk_size == 0
         n_chunks = l // chunk_size
         with t.no_grad():
-            encoder_kv = None
             x = t.randn(bs, l, d).cuda()
-            if self.attn_func == 6:
-                encoder_kv = t.randn(bs, enc_l, d).cuda()
-
+            encoder_kv = t.randn(bs, enc_l, d).cuda() if self.attn_func == 6 else None
             self.del_cache()
             y_forw = self.forward(x, encoder_kv=encoder_kv, sample=False)
             self.del_cache()

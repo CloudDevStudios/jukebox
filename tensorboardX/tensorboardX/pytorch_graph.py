@@ -32,11 +32,12 @@ class NodeBase(object):
             self.scope = scope
 
     def __repr__(self):
-        repr = []
-        repr.append(str(type(self)))
-        for m in dir(self):
-            if '__' not in m:
-                repr.append(m + ': ' + str(getattr(self, m)) + str(type(getattr(self, m))))
+        repr = [str(type(self))]
+        repr.extend(
+            f'{m}: {str(getattr(self, m))}{str(type(getattr(self, m)))}'
+            for m in dir(self)
+            if '__' not in m
+        )
         return '\n'.join(repr) + '\n\n'
 
 
@@ -47,7 +48,7 @@ class NodePy(NodeBase):
         self.inputs = []
         global backward_mode
         for m in valid_methods:
-            if m == 'inputs' or m == 'outputs':
+            if m in ['inputs', 'outputs']:
                 list_of_node = list(getattr(node_cpp, m)())
                 io_unique_names = []
                 io_tensor_sizes = []
@@ -63,13 +64,12 @@ class NodePy(NodeBase):
                         io_tensor_sizes.append(None)
 
                 setattr(self, m, io_unique_names)
-                setattr(self, m + 'tensor_size', io_tensor_sizes)
+                setattr(self, f'{m}tensor_size', io_tensor_sizes)
 
+            elif m == 'debugName' and backward_mode:
+                setattr(self, m, getattr(node_cpp, 'uniqueName')())
             else:
-                if m == 'debugName' and backward_mode:
-                    setattr(self, m, getattr(node_cpp, 'uniqueName')())
-                else:
-                    setattr(self, m, getattr(node_cpp, m)())
+                setattr(self, m, getattr(node_cpp, m)())
 
 
 class NodePyIO(NodePy):
@@ -156,22 +156,27 @@ class GraphPy(object):
     def populate_namespace_from_OP_to_IO(self):
         for node in self.nodes_op:
             for input_node_id in node.inputs:
-                self.unique_name_to_scoped_name[input_node_id] = node.scopeName + '/' + input_node_id
+                self.unique_name_to_scoped_name[
+                    input_node_id
+                ] = f'{node.scopeName}/{input_node_id}'
 
         for key, node in self.nodes_io.items():
             if type(node) == NodeBase:
-                self.unique_name_to_scoped_name[key] = node.scope + '/' + node.debugName
+                self.unique_name_to_scoped_name[key] = f'{node.scope}/{node.debugName}'
             if hasattr(node, 'input_or_output'):
-                self.unique_name_to_scoped_name[key] = node.input_or_output + '/' + node.debugName
+                self.unique_name_to_scoped_name[
+                    key
+                ] = f'{node.input_or_output}/{node.debugName}'
             if hasattr(node, 'scope'):
                 if node.scope == '' and self.shallowest_scope_name:
-                    self.unique_name_to_scoped_name[node.debugName] = \
-                        self.shallowest_scope_name + '/' + node.debugName
+                    self.unique_name_to_scoped_name[
+                        node.debugName
+                    ] = f'{self.shallowest_scope_name}/{node.debugName}'
 
         # replace name
         for key, node in self.nodes_io.items():
             self.nodes_io[key].inputs = \
-                [self.unique_name_to_scoped_name[node_input_id] for node_input_id in node.inputs]
+                    [self.unique_name_to_scoped_name[node_input_id] for node_input_id in node.inputs]
             if node.debugName in self.unique_name_to_scoped_name:
                 self.nodes_io[key].debugName = self.unique_name_to_scoped_name[node.debugName]
 

@@ -119,8 +119,7 @@ class BottleneckBlock(nn.Module):
         return x_l, fit
 
     def dequantise(self, x_l):
-        x = F.embedding(x_l, self.k)
-        return x
+        return F.embedding(x_l, self.k)
 
     def encode(self, x):
         N, width, T = x.shape
@@ -161,11 +160,7 @@ class BottleneckBlock(nn.Module):
         x_d = self.dequantise(x_l)
 
         # Update embeddings
-        if update_k:
-            update_metrics = self.update_k(x, x_l)
-        else:
-            update_metrics = {}
-
+        update_metrics = self.update_k(x, x_l) if update_k else {}
         # Loss
         commit_loss = t.norm(x_d.detach() - x) ** 2 / np.prod(x.shape)
 
@@ -189,14 +184,20 @@ class Bottleneck(nn.Module):
             self.level_blocks.append(level_block(level))
 
     def encode(self, xs):
-        zs = [level_block.encode(x) for (level_block, x) in zip(self.level_blocks, xs)]
-        return zs
+        return [
+            level_block.encode(x)
+            for (level_block, x) in zip(self.level_blocks, xs)
+        ]
 
     def decode(self, zs, start_level=0, end_level=None):
         if end_level is None:
             end_level = self.levels
-        xs_quantised = [level_block.decode(z) for (level_block, z) in zip(self.level_blocks[start_level:end_level], zs)]
-        return xs_quantised
+        return [
+            level_block.decode(z)
+            for (level_block, z) in zip(
+                self.level_blocks[start_level:end_level], zs
+            )
+        ]
 
     def forward(self, xs):
         zs, xs_quantised, commit_losses, metrics = [], [], [], []
@@ -224,7 +225,7 @@ class NoBottleneck(nn.Module):
         super().__init__()
         self.level_blocks = nn.ModuleList()
         self.levels = levels
-        for level in range(levels):
+        for _ in range(levels):
             self.level_blocks.append(NoBottleneckBlock())
 
     def encode(self, xs):

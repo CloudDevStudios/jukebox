@@ -35,7 +35,7 @@ class FigureTest(unittest.TestCase):
         figures = []
         for i in range(5):
             figure = plt.figure()
-            plt.plot([i * 1, i * 2, i * 3], label="Plot " + str(i))
+            plt.plot([i * 1, i * 2, i * 3], label=f"Plot {str(i)}")
             plt.xlabel("X")
             plt.xlabel("Y")
             plt.legend()
@@ -43,9 +43,9 @@ class FigureTest(unittest.TestCase):
             figures.append(figure)
 
         writer.add_figure("add_figure/figure_list", figures, 0, close=False)
-        assert all([plt.fignum_exists(figure.number) is True for figure in figures])
+        assert all(plt.fignum_exists(figure.number) is True for figure in figures)
 
         writer.add_figure("add_figure/figure_list", figures, 1)
-        assert all([plt.fignum_exists(figure.number) is False for figure in figures])
+        assert all(plt.fignum_exists(figure.number) is False for figure in figures)
 
         writer.close()

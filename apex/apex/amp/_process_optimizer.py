@@ -11,66 +11,66 @@ class AmpOptimizerState(object):
 
 
 def lazy_init_with_master_weights(self):
-        stash = self._amp_stash
-        stash.fp16_groups = []
-        stash.fp32_from_fp16_groups = []
-        stash.fp32_from_fp32_groups = []
-        for i, param_group in enumerate(self.param_groups):
-            # maybe_print("FP16_Optimizer processing param group {}:".format(i))
-            fp16_params_this_group = []
-            fp32_params_this_group = []
-            fp32_from_fp16_params_this_group = []
-            for i, param in enumerate(param_group['params']):
-                if param.requires_grad:
-                    if param.type() == 'torch.cuda.HalfTensor':
-                        # maybe_print("FP16_Optimizer received torch.cuda.HalfTensor with {}"
-                        #             .format(param.size()))
-                        fp16_params_this_group.append(param)
-                        master_param = param.detach().clone().float()
-                        master_param.requires_grad = True
-                        param_group['params'][i] = master_param
-                        fp32_from_fp16_params_this_group.append(master_param)
-                        # Reset existing state dict key to the new master param.
-                        # We still need to recast per-param state tensors, if any, to FP32.
-                        if param in self.state:
-                           self.state[master_param] = self.state.pop(param)
-                    elif param.type() == 'torch.cuda.FloatTensor':
-                        # maybe_print("FP16_Optimizer received torch.cuda.FloatTensor with {}"
-                        #             .format(param.size()))
-                        fp32_params_this_group.append(param)
-                        param_group['params'][i] = param
-                    else:
-                        raise TypeError("Optimizer's parameters must be either "
-                                        "torch.cuda.FloatTensor or torch.cuda.HalfTensor. "
-                                        "Received {}".format(param.type()))
+    stash = self._amp_stash
+    stash.fp16_groups = []
+    stash.fp32_from_fp16_groups = []
+    stash.fp32_from_fp32_groups = []
+    for i, param_group in enumerate(self.param_groups):
+        # maybe_print("FP16_Optimizer processing param group {}:".format(i))
+        fp16_params_this_group = []
+        fp32_params_this_group = []
+        fp32_from_fp16_params_this_group = []
+        for i, param in enumerate(param_group['params']):
+            if param.requires_grad:
+                if param.type() == 'torch.cuda.HalfTensor':
+                    # maybe_print("FP16_Optimizer received torch.cuda.HalfTensor with {}"
+                    #             .format(param.size()))
+                    fp16_params_this_group.append(param)
+                    master_param = param.detach().clone().float()
+                    master_param.requires_grad = True
+                    param_group['params'][i] = master_param
+                    fp32_from_fp16_params_this_group.append(master_param)
+                    # Reset existing state dict key to the new master param.
+                    # We still need to recast per-param state tensors, if any, to FP32.
+                    if param in self.state:
+                       self.state[master_param] = self.state.pop(param)
+                elif param.type() == 'torch.cuda.FloatTensor':
+                    # maybe_print("FP16_Optimizer received torch.cuda.FloatTensor with {}"
+                    #             .format(param.size()))
+                    fp32_params_this_group.append(param)
+                    param_group['params'][i] = param
+                else:
+                    raise TypeError(
+                        f"Optimizer's parameters must be either torch.cuda.FloatTensor or torch.cuda.HalfTensor. Received {param.type()}"
+                    )
 
-            stash.fp16_groups.append(fp16_params_this_group)
-            stash.fp32_from_fp16_groups.append(fp32_from_fp16_params_this_group)
-            stash.fp32_from_fp32_groups.append(fp32_params_this_group)
+        stash.fp16_groups.append(fp16_params_this_group)
+        stash.fp32_from_fp16_groups.append(fp32_from_fp16_params_this_group)
+        stash.fp32_from_fp32_groups.append(fp32_params_this_group)
 
-        stash.all_fp16_params = []
-        for group in stash.fp16_groups:
-            stash.all_fp16_params += group
+    stash.all_fp16_params = []
+    for group in stash.fp16_groups:
+        stash.all_fp16_params += group
 
-        stash.all_fp32_from_fp16_params = []
-        for group in stash.fp32_from_fp16_groups:
-            stash.all_fp32_from_fp16_params += group
+    stash.all_fp32_from_fp16_params = []
+    for group in stash.fp32_from_fp16_groups:
+        stash.all_fp32_from_fp16_params += group
 
-        stash.all_fp32_from_fp32_params = []
-        for group in stash.fp32_from_fp32_groups:
-            stash.all_fp32_from_fp32_params += group
+    stash.all_fp32_from_fp32_params = []
+    for group in stash.fp32_from_fp32_groups:
+        stash.all_fp32_from_fp32_params += group
 
-        # stash.all_fp32_from_fp16_grad_stash = [None for _ in stash.all_fp32_from_fp16_params]
-        stash.all_fp32_from_fp32_grad_stash = [None for _ in stash.all_fp32_from_fp32_params]
+    # stash.all_fp32_from_fp16_grad_stash = [None for _ in stash.all_fp32_from_fp16_params]
+    stash.all_fp32_from_fp32_grad_stash = [None for _ in stash.all_fp32_from_fp32_params]
 
-        for param in stash.all_fp32_from_fp16_params:
-            param.grad = None
+    for param in stash.all_fp32_from_fp16_params:
+        param.grad = None
 
-        for param in stash.all_fp32_from_fp32_params:
-            param.grad = None
+    for param in stash.all_fp32_from_fp32_params:
+        param.grad = None
 
-        # Leverage state_dict() and load_state_dict() to recast preexisting per-param state tensors
-        self.load_state_dict(self.state_dict())
+    # Leverage state_dict() and load_state_dict() to recast preexisting per-param state tensors
+    self.load_state_dict(self.state_dict())
 
 
 def prepare_backward_with_master_weights(self):
@@ -80,7 +80,7 @@ def prepare_backward_with_master_weights(self):
         self._lazy_init_maybe_master_weights()
         stash.lazy_init_called = True
 
-    for i, param in enumerate(stash.all_fp16_params):
+    for param in stash.all_fp16_params:
         # Set up to leverage grad copy elision:
         param.grad = None
 
@@ -109,20 +109,20 @@ def post_backward_with_master_weights(self, scaler):
             fp32_param.grad = torch.empty_like(fp32_param)
             fp16_grads_needing_unscale.append(fp16_param.grad)
             new_fp32_grads.append(fp32_param.grad)
-        elif fp16_param.grad is not None and fp32_param.grad is not None:
+        elif fp16_param.grad is not None:
             fp16_grads_needing_unscale_with_stash.append(fp16_param.grad)
             preexisting_fp32_grads.append(fp32_param.grad)
         else: # fp16_param.grad is None and fp32_param.grad is None:
             continue
 
-    if len(fp16_grads_needing_unscale) > 0:
+    if fp16_grads_needing_unscale:
         scaler.unscale(
             fp16_grads_needing_unscale,
             new_fp32_grads,
             scaler.loss_scale(),
             models_are_masters=False)
 
-    if len(fp16_grads_needing_unscale_with_stash) > 0:
+    if fp16_grads_needing_unscale_with_stash:
         scaler.unscale_with_stashed(
             fp16_grads_needing_unscale_with_stash,
             preexisting_fp32_grads,
@@ -138,20 +138,20 @@ def post_backward_with_master_weights(self, scaler):
             param.grad = stashed_grad
         elif param.grad is not None and stashed_grad is None:
             grads_needing_unscale.append(param.grad)
-        elif param.grad is not None and stashed_grad is not None:
+        elif param.grad is not None:
             grads_needing_unscale_with_stash.append(param.grad)
             stashed.append(stashed_grad)
         else: # param.grad is None and stashed_grad is None:
             continue
 
-    if len(grads_needing_unscale) > 0:
+    if grads_needing_unscale:
         scaler.unscale(
             grads_needing_unscale,
             grads_needing_unscale,
             scaler.loss_scale(),
             models_are_masters=True)
 
-    if len(grads_needing_unscale_with_stash) > 0:
+    if grads_needing_unscale_with_stash:
         scaler.unscale_with_stashed(
             grads_needing_unscale_with_stash,
             stashed,
@@ -166,16 +166,16 @@ def lazy_init_no_master_weights(self):
     stash = self._amp_stash
     stash.all_fp16_params = []
     stash.all_fp32_params = []
-    for i, param_group in enumerate(self.param_groups):
-        for i, param in enumerate(param_group['params']):
+    for param_group in self.param_groups:
+        for param in param_group['params']:
             if param.type() == 'torch.cuda.HalfTensor':
                 stash.all_fp16_params.append(param)
             elif param.type() == 'torch.cuda.FloatTensor':
                 stash.all_fp32_params.append(param)
             else:
-                raise TypeError("Optimizer's parameters must be either "
-                                "torch.cuda.FloatTensor or torch.cuda.HalfTensor. "
-                                "Received {}".format(param.type()))
+                raise TypeError(
+                    f"Optimizer's parameters must be either torch.cuda.FloatTensor or torch.cuda.HalfTensor. Received {param.type()}"
+                )
 
     stash.all_fp16_grad_stash = [None for _ in stash.all_fp16_params]
     stash.all_fp32_grad_stash = [None for _ in stash.all_fp32_params]
@@ -215,20 +215,20 @@ def post_backward_no_master_weights(self, scaler):
                 param.grad = stashed_grad
             elif param.grad is not None and stashed_grad is None:
                 grads_needing_unscale.append(param.grad)
-            elif param.grad is not None and stashed_grad is not None:
+            elif param.grad is not None:
                 grads_needing_unscale_with_stash.append(param.grad)
                 stashed.append(stashed_grad)
             else: # param.grad is None and stashed_grad is None
                 continue
 
-        if len(grads_needing_unscale) > 0:
+        if grads_needing_unscale:
             scaler.unscale(
                 grads_needing_unscale,
                 grads_needing_unscale,
                 scaler.loss_scale(),
                 models_are_masters=True)
 
-        if len(grads_needing_unscale_with_stash) > 0:
+        if grads_needing_unscale_with_stash:
             scaler.unscale_with_stashed(
                 grads_needing_unscale_with_stash,
                 stashed,

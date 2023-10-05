@@ -10,23 +10,15 @@ def get_cuda_version():
 
 def is_fp_tensor(x):
     if is_nested(x):
-        # Fast-fail version of all(is_fp_tensor)
-        for y in x:
-            if not is_fp_tensor(y):
-                return False
-        return True
+        return all(is_fp_tensor(y) for y in x)
     return compat.is_tensor_like(x) and compat.is_floating_point(x)
 
 def is_nested(x):
-    return isinstance(x, tuple) or isinstance(x, list)
+    return isinstance(x, (tuple, list))
 
 def should_cache(x):
     if is_nested(x):
-        # Fast-fail version of all(should_cache)
-        for y in x:
-            if not should_cache(y):
-                return False
-        return True
+        return all(should_cache(y) for y in x)
     return isinstance(x, torch.nn.parameter.Parameter) and \
         type_string(x) == 'FloatTensor'
 
@@ -54,10 +46,9 @@ def maybe_half(x, name='', verbose=False):
 
     if not x.is_cuda or type_string(x) == 'HalfTensor':
         return x
-    else:
-        if verbose:
-            print('Float->Half ({})'.format(name))
-        return x.half()
+    if verbose:
+        print(f'Float->Half ({name})')
+    return x.half()
 
 def maybe_float(x, name='', verbose=False):
     if is_nested(x):
@@ -65,10 +56,9 @@ def maybe_float(x, name='', verbose=False):
 
     if not x.is_cuda or type_string(x) == 'FloatTensor':
         return x
-    else:
-        if verbose:
-            print('Half->Float ({})'.format(name))
-        return x.float()
+    if verbose:
+        print(f'Half->Float ({name})')
+    return x.float()
 
 # NB: returneds casted `args`, mutates `kwargs` in-place
 def casted_args(cast_fn, args, kwargs):
@@ -126,7 +116,7 @@ def verbosify(cast_fn, fn_name, verbose):
 
 def as_inplace(fns):
     for x in fns:
-        yield x + '_'
+        yield f'{x}_'
 
 def has_func(mod, fn):
     if isinstance(mod, torch.nn.backends.backend.FunctionBackend):
@@ -187,7 +177,7 @@ def synthesize_flattened_rnn_weights(fp32_weights,
                         w_fp32.shape)
             w_fp16.copy_(w_fp32)
             if verbose:
-                print('Float->Half ({})'.format(rnn_fn))
+                print(f'Float->Half ({rnn_fn})')
             fp16_layer_weights.append(w_fp16)
         fp16_weights.append(fp16_layer_weights)
     return fp16_weights
@@ -208,6 +198,6 @@ def new_synthesize_flattened_rnn_weights(fp32_weights,
                     w_fp32.shape)
         w_fp16.copy_(w_fp32)
         if verbose:
-            print('Float->Half ({})'.format(rnn_fn))
+            print(f'Float->Half ({rnn_fn})')
         fp16_weights.append(w_fp16)
     return fp16_weights

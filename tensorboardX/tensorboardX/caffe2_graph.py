@@ -235,10 +235,8 @@ def _add_gradient_scope(shapes, blob_name_tracker, ops):
         None. Modifies shapes, blob_name_tracker and ops in-place by renaming.
     """
     def f(name):
-        if '_grad' in name:
-            return 'GRADIENTS/{}'.format(name)
-        else:
-            return name
+        return 'GRADIENTS/{}'.format(name) if '_grad' in name else name
+
     _rename_all(shapes, blob_name_tracker, ops, f)
 
 
@@ -313,10 +311,10 @@ def _tf_device(device_option):
     '''
     if not device_option.HasField("device_type"):
         return ""
-    if device_option.device_type == caffe2_pb2.CPU or device_option.device_type == caffe2_pb2.MKLDNN:
+    if device_option.device_type in [caffe2_pb2.CPU, caffe2_pb2.MKLDNN]:
         return "/cpu:*"
     if device_option.device_type == caffe2_pb2.CUDA:
-        return "/gpu:{}".format(device_option.device_id)
+        return f"/gpu:{device_option.device_id}"
     raise Exception("Unhandled device", device_option)
 
 
@@ -446,7 +444,7 @@ def _operator_to_node_simp(op, inter_blobs, seen):
         if op.name:
             name = op.name
         else:
-            name_list = [name for name in outputs]
+            name_list = list(outputs)
             scope = os.path.commonprefix(name_list)
             name = os.path.join(scope, op.type)
         assert(name)
@@ -494,12 +492,7 @@ def _blob_to_node(producing_ops, shapes, name):
     # Get all ops that have the blob corresponding to 'name' as one of their
     # outputs. See _operators_to_graph_def.
     produced_by = producing_ops.get(name, [])
-    if len(produced_by) > 0:
-        n.op = 'Blob'
-    else:
-        # This blob is not produced but is instead a TF Placeholder where a
-        # value is passed in.
-        n.op = 'Placeholder'
+    n.op = 'Blob' if len(produced_by) > 0 else 'Placeholder'
     n.input.extend('%s:%d' % (p_op.name, i) for p_op, i in produced_by)
     if produced_by:
         device = produced_by[0][0].device_option
@@ -614,10 +607,7 @@ def _filter_ops(ops, filter_fn, perform_filter):
         del op.input[:]
         del op.output[:]
         new_inputs = [i for i in inputs if filter_fn(i)]
-        new_outputs = [o for o in outputs if filter_fn(o)]
-
-        # Only add the op if output is not empty
-        if new_outputs:
+        if new_outputs := [o for o in outputs if filter_fn(o)]:
             op.input.extend(new_inputs)
             op.output.extend(new_outputs)
             new_ops.append(op)
@@ -698,8 +688,7 @@ def _operators_to_graph_def(
             show_simplified else \
             [_operator_to_node(shapes, op)]  # .extend() expects an iterable
         current_graph.node.extend(nodes_from_op)
-        for input_blob in op.input:
-            blobs.append(input_blob)
+        blobs.extend(iter(op.input))
         for i, output_blob in enumerate(op.output):
             blobs.append(output_blob)
             producing_ops.setdefault(output_blob, []).append((op, i))

@@ -75,14 +75,13 @@ class FP16_Optimizer(object):
                 raise SystemError("Do not support dynamic loss scale args for now.")
             self.dynamic_loss_scale = True
             self.cur_scale = 2**16
-            self.cur_iter = 0
             self.last_overflow_iter = -1
             self.scale_factor = 2
             self.scale_window = 1000
         else:
             self.dynamic_loss_scale = False
-            self.cur_iter = 0
             self.cur_scale = static_loss_scale
+        self.cur_iter = 0
         self.verbose = verbose
 
     def zero_grad(self, set_grads_to_None=True):
@@ -95,10 +94,9 @@ class FP16_Optimizer(object):
             for p in group:
                 if set_grads_to_None:
                     p.grad = None
-                else:
-                    if p.grad is not None:
-                        p.grad.detach_()
-                        p.grad.zero_()
+                elif p.grad is not None:
+                    p.grad.detach_()
+                    p.grad.zero_()
 
     def _compute_grad_norm(self, fp16_grads_flat, norm_type=2):
         """
@@ -179,13 +177,11 @@ class FP16_Optimizer(object):
                     print("Using dynamic loss scale of", self.cur_scale)
                 self.cur_scale = max(self.cur_scale/self.scale_factor, 1)
                 self.last_overflow_iter = self.cur_iter
-            else:
-                if (self.cur_iter - self.last_overflow_iter) % self.scale_window == 0:
-                    self.cur_scale *= self.scale_factor
-        else:
-            if skip:
-                print("\nGrad overflow on iteration", self.cur_iter)
-                print("Using static loss scale of", self.cur_scale)
+            elif (self.cur_iter - self.last_overflow_iter) % self.scale_window == 0:
+                self.cur_scale *= self.scale_factor
+        elif skip:
+            print("\nGrad overflow on iteration", self.cur_iter)
+            print("Using static loss scale of", self.cur_scale)
         self.cur_iter +=1
         return
 
@@ -219,10 +215,11 @@ class FP16_Optimizer(object):
             checkpoint['optimizer'] = optimizer.state_dict()
             torch.save(checkpoint, "saved.pth")
         """
-        state_dict = {}
-        state_dict['dynamic_loss_scale'] = self.dynamic_loss_scale
-        state_dict['cur_scale'] = self.cur_scale
-        state_dict['cur_iter'] = self.cur_iter
+        state_dict = {
+            'dynamic_loss_scale': self.dynamic_loss_scale,
+            'cur_scale': self.cur_scale,
+            'cur_iter': self.cur_iter,
+        }
         if state_dict['dynamic_loss_scale']:
             state_dict['last_overflow_iter'] = self.last_overflow_iter
             state_dict['scale_factor'] = self.scale_factor

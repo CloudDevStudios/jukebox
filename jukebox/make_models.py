@@ -35,7 +35,7 @@ def load_checkpoint(path):
         restore = local_path
     dist.barrier()
     checkpoint = t.load(restore, map_location=t.device('cpu'))
-    print("Restored from {}".format(restore))
+    print(f"Restored from {restore}")
     return checkpoint
 
 def save_checkpoint(logger, name, model, opt, metrics, hps):
@@ -94,7 +94,7 @@ def make_vqvae(hps, device='cuda'):
     vqvae = vqvae.to(device)
     restore_model(hps, vqvae, hps.restore_vqvae)
     if hps.train and not hps.prior:
-        print_all(f"Loading vqvae in train mode")
+        print_all("Loading vqvae in train mode")
         if hps.restore_vqvae != '':
             print_all("Reseting bottleneck emas")
             for level, bottleneck in enumerate(vqvae.bottleneck.level_blocks):
@@ -104,7 +104,7 @@ def make_vqvae(hps, device='cuda'):
                 num_tokens = (num_samples // raw_to_tokens) * dist.get_world_size()
                 bottleneck.restore_k(num_tokens=num_tokens, threshold=hps.revival_threshold)
     else:
-        print_all(f"Loading vqvae in eval mode")
+        print_all("Loading vqvae in eval mode")
         vqvae.eval()
         freeze_model(vqvae)
     return vqvae
@@ -178,10 +178,9 @@ def make_prior(hps, vqvae, device='cuda'):
     prior = prior.to(device)
     restore_model(hps, prior, hps.restore_prior)
     if hps.train:
-        print_all(f"Loading prior in train mode")
-        pass
+        print_all("Loading prior in train mode")
     else:
-        print_all(f"Loading prior in eval mode")
+        print_all("Loading prior in eval mode")
         prior.eval()
         freeze_model(prior)
     return prior

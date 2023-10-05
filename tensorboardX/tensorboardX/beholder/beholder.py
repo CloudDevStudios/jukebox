@@ -39,7 +39,7 @@ from . import video_writing
 class Beholder(object):
 
     def __init__(self, logdir):
-        self.PLUGIN_LOGDIR = logdir + '/plugins/' + PLUGIN_NAME
+        self.PLUGIN_LOGDIR = f'{logdir}/plugins/{PLUGIN_NAME}'
 
         self.is_recording = False
         self.video_writer = video_writing.VideoWriter(
@@ -51,15 +51,14 @@ class Beholder(object):
         self.config_last_modified_time = -1
         self.previous_config = dict(DEFAULT_CONFIG)
 
-        if not os.path.exists(self.PLUGIN_LOGDIR + '/config.pkl'):
+        if not os.path.exists(f'{self.PLUGIN_LOGDIR}/config.pkl'):
             os.makedirs(self.PLUGIN_LOGDIR)
-            write_pickle(DEFAULT_CONFIG,
-                         '{}/{}'.format(self.PLUGIN_LOGDIR, CONFIG_FILENAME))
+            write_pickle(DEFAULT_CONFIG, f'{self.PLUGIN_LOGDIR}/{CONFIG_FILENAME}')
 
         # self.visualizer = Visualizer(self.PLUGIN_LOGDIR)
     def _get_config(self):
         '''Reads the config file from disk or creates a new one.'''
-        filename = '{}/{}'.format(self.PLUGIN_LOGDIR, CONFIG_FILENAME)
+        filename = f'{self.PLUGIN_LOGDIR}/{CONFIG_FILENAME}'
         modified_time = os.path.getmtime(filename)
 
         if modified_time != self.config_last_modified_time:
@@ -73,7 +72,7 @@ class Beholder(object):
 
     def _write_summary(self, frame):
         '''Writes the frame to disk as a tensor summary.'''
-        path = '{}/{}'.format(self.PLUGIN_LOGDIR, SUMMARY_FILENAME)
+        path = f'{self.PLUGIN_LOGDIR}/{SUMMARY_FILENAME}'
         smd = SummaryMetadata()
         tensor = TensorProto(
             dtype='DT_FLOAT',
@@ -114,14 +113,12 @@ class Beholder(object):
             # print('===arrays===')
             final_image = np.concatenate([arr for arr, _ in arrays])
             stat = self.stats(arrays)
-            write_pickle(
-                stat, '{}/{}'.format(self.PLUGIN_LOGDIR, SECTION_INFO_FILENAME))
+            write_pickle(stat, f'{self.PLUGIN_LOGDIR}/{SECTION_INFO_FILENAME}')
         elif config['values'] == 'trainable_variables':
             # print('===trainable===')
             final_image = np.concatenate([arr for arr, _ in trainable])
             stat = self.stats(trainable)
-            write_pickle(
-                stat, '{}/{}'.format(self.PLUGIN_LOGDIR, SECTION_INFO_FILENAME))
+            write_pickle(stat, f'{self.PLUGIN_LOGDIR}/{SECTION_INFO_FILENAME}')
         if len(final_image.shape) == 2:  # Map grayscale images to 3D tensors.
             final_image = np.expand_dims(final_image, -1)
 
@@ -131,9 +128,8 @@ class Beholder(object):
         '''For limiting how often frames are computed.'''
         if FPS == 0:
             return False
-        else:
-            earliest_time = self.last_update_time + (1.0 / FPS)
-            return time.time() >= earliest_time
+        earliest_time = self.last_update_time + (1.0 / FPS)
+        return time.time() >= earliest_time
 
     def _update_frame(self, trainable, arrays, frame, config):
         final_image = self._get_final_image(config, trainable, arrays, frame)

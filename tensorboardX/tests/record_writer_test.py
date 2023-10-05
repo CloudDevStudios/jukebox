@@ -61,7 +61,7 @@ class RecordWriterTest(unittest.TestCase):
     w.close()
 
     r = PyRecordReader_New(filename)
-    for i in range(times_to_test):
+    for _ in range(times_to_test):
       r.GetNext()
       self.assertEqual(r.record(), bytes_to_write)
 

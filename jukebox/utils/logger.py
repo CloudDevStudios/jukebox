@@ -9,17 +9,14 @@ def def_tqdm(x):
     return tqdm(x, leave=True, file=sys.stdout, bar_format="{n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]")
 
 def get_range(x):
-    if dist.get_rank() == 0:
-        return def_tqdm(x)
-    else:
-        return x
+    return def_tqdm(x) if dist.get_rank() == 0 else x
 
 def init_logging(hps, local_rank, rank):
     logdir = f"{hps.local_logdir}/{hps.name}"
     if local_rank == 0:
         if not os.path.exists(logdir):
             os.makedirs(logdir)
-        with open(logdir + 'argv.txt', 'w') as f:
+        with open(f'{logdir}argv.txt', 'w') as f:
             f.write(hps.argv + '\n')
         print("Logging to", logdir)
     logger = Logger(logdir, rank)
@@ -28,10 +25,7 @@ def init_logging(hps, local_rank, rank):
     return logger, metrics
 
 def get_name(hps):
-    name = ""
-    for key, value in hps.items():
-        name += f"{key}_{value}_"
-    return name
+    return "".join(f"{key}_{value}_" for key, value in hps.items())
 
 def average_metrics(_metrics):
     metrics = {}
@@ -61,10 +55,7 @@ class Metrics:
         return sum / n
 
     def avg(self, tag):
-        if tag in self.sum:
-            return self.sum[tag] / self.n[tag]
-        else:
-            return 0.0
+        return self.sum[tag] / self.n[tag] if tag in self.sum else 0.0
 
     def reset(self):
         self.sum = {}
@@ -116,10 +107,7 @@ class Logger:
             self.sw.add_scalar(tag, val, self.iters)
 
     def get_range(self, loader):
-        if self.rank == 0:
-            self.trange = def_tqdm(loader)
-        else:
-            self.trange = loader
+        self.trange = def_tqdm(loader) if self.rank == 0 else loader
         return enumerate(self.trange)
 
     def close_range(self):

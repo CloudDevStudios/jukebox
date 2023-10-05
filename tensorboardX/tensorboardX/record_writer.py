@@ -139,5 +139,5 @@ def u32(x):
 def make_valid_tf_name(name):
     if not _VALID_OP_NAME_START.match(name):
         # Must make it valid somehow, but don't want to remove stuff
-        name = '.' + name
+        name = f'.{name}'
     return '_'.join(_VALID_OP_NAME_PART.findall(name))

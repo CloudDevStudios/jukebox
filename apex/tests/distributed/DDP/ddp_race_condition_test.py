@@ -57,8 +57,9 @@ for i in range(10):
     def info(name, param, val):
         expected = val*4096*4096*(2.*i+1)/2.
         actual = param.grad.data.sum().item()
-        print(name+": grad.data_ptr() = {}, expected sum {}, got {}".format(
-              param.grad.data_ptr(), expected, actual))
+        print(
+            f"{name}: grad.data_ptr() = {param.grad.data_ptr()}, expected sum {expected}, got {actual}"
+        )
         return (expected == actual)
     if not info("model.a", model.module.a, 2.):  passed = False
     if not info("model.b", model.module.b, 1.):  passed = False

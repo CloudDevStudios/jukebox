@@ -58,7 +58,7 @@ def _save_item_html(item_dir, item_id, item_name, data):
 
             # Small alignment image
             im = Image.fromarray(np.uint8(alignment * 255)).resize((512, 1024)).transpose(Image.ROTATE_90)
-            img_src = f'align.png'
+            img_src = 'align.png'
             im.save(f'{item_dir}/{img_src}')
             print(f"<img id='{img_src}' src='{img_src}' \>", file=html)
 
@@ -67,24 +67,24 @@ def _save_item_html(item_dir, item_id, item_name, data):
             alignment = Image.fromarray(np.uint8(alignment * 255)).resize((total_tokens, total_alignment_length))
             alignment = alignment.filter(ImageFilter.GaussianBlur(radius=1.5))
             alignment = np.asarray(alignment).tolist()
-            align_src = f'align.json'
+            align_src = 'align.json'
             with open(f'{item_dir}/{align_src}', 'w') as f:
                 json.dump(alignment, f)
 
         # Audio
-        wav_src = f'audio.wav'
+        wav_src = 'audio.wav'
         soundfile.write(f'{item_dir}/{wav_src}', wav, samplerate=sr, format='wav')
         print(f"<audio id='{wav_src}' src='{wav_src}' style='width: 100%;' controls></audio>", file=html)
 
 
         # Labels and Lyrics
-        print(f"<pre style='white-space: pre-wrap;'>", end="", file=html)
+        print("<pre style='white-space: pre-wrap;'>", end="", file=html)
         print(f"<div>Artist {artist}, Genre {genre}</div>", file=html)
-        lyrics = [c for c in lyrics]  # already characters actually
+        lyrics = list(lyrics)
         lyrics = [''] + lyrics[:-1]  # input lyrics are shifted by 1
         for i, c in enumerate(lyrics):
             print(f"<span id='{item_id}/{i}'>{c}</span>", end="", file=html)
-        print(f"</pre>", file=html)
+        print("</pre>", file=html)
         with open(f'{item_dir}/lyrics.json', 'w') as f:
             json.dump(lyrics, f)
 
